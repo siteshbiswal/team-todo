@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addDays, agingBuckets, countBy, filterRows, importValue, isExampleRow, parseCell, sortRows, summarizeTasks, topDebtors } from './lib'
+import { addDays, agingBuckets, countBy, filterRows, importValue, isExampleRow, parseCell, parseHash, sortRows, statusTone, sumBy, summarizeTasks, topDebtors, trackerForTask } from './lib'
 
 describe('parseCell', () => {
   it('empty -> null', () => expect(parseCell('text', '  ')).toBeNull())
@@ -56,4 +56,28 @@ describe('import helpers', () => {
     expect(isExampleRow([1, 'PO/2026/7'])).toBe(false)
   })
   it('adds days across month ends', () => expect(addDays('2026-10-30', 3)).toBe('2026-11-02'))
+})
+
+describe('ui helpers', () => {
+  it('maps statuses to tones', () => {
+    expect(statusTone('Done')).toBe('good')
+    expect(statusTone('In Progress')).toBe('info')
+    expect(statusTone('Pending')).toBe('warn')
+    expect(statusTone('Lost')).toBe('bad')
+    expect(statusTone('whatever')).toBe('neutral')
+    expect(statusTone(null)).toBe('neutral')
+  })
+  it('links tasks to their tracker', () => {
+    expect(trackerForTask('P1 - OUTSTANDING PAYMENT: call every party', 'Sales / Pre-Sales')).toBe('outstanding')
+    expect(trackerForTask('P3 - PURCHASE ORDER PLACING', 'Sales / Pre-Sales')).toBe('pos')
+    expect(trackerForTask('BidEasy scan', 'Tendering')).toBe('tenders')
+    expect(trackerForTask('Salary calculation', 'Accounts')).toBeNull()
+  })
+  it('sums numeric columns ignoring blanks', () => expect(sumBy([{ a: 5 }, { a: null }, { a: '7' }], 'a')).toBe(12))
+  it('parses hash routes with params and ignores auth hashes', () => {
+    const r = parseHash('#/tenders?status=Won&q=gem')
+    expect(r.path).toBe('/tenders'); expect(r.params.get('status')).toBe('Won'); expect(r.params.get('q')).toBe('gem')
+    expect(parseHash('#access_token=abc').path).toBe('/today')
+    expect(parseHash('').path).toBe('/today')
+  })
 })

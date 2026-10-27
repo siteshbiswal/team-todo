@@ -24,5 +24,7 @@ export interface TrackerConfig {
   searchKeys: string[]
   editTeams: string[]
   defaultSort: { key: string; dir: 'asc' | 'desc' }
+  cardFields: string[] // shown on the mobile card; the first is the card title
+  actions?: ('payment' | 'logistics')[]
   rowClass?: (row: Row, today: string) => string
 }

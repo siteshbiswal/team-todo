@@ -91,3 +91,40 @@ export function importValue(type: ColType, v: unknown, options?: string[]): stri
 
 export const isExampleRow = (values: unknown[]) =>
   values.some(v => typeof v === 'string' && /example|delete this/i.test(v))
+
+export type Tone = 'good' | 'warn' | 'bad' | 'info' | 'neutral'
+
+const TONES: Record<Tone, string[]> = {
+  good: ['done', 'won', 'delivered', 'commissioned', 'closed', 'paid', 'approved', 'vendor confirmed', 'rate finalised', 'received', 'yes', 'refunded'],
+  warn: ['pending', 'to quote', 'under negotiation', 'material ready', 'requested', 'quotes received', 'open', 'vendor pending', 'required', 'enquiry sent', 'partial'],
+  info: ['in progress', 'quoted', 'vendor po placed', 'dispatched', 'in transit', 'po received'],
+  bad: ['lost', 'cancelled', 'rejected', 'held', 'expired'],
+  neutral: [],
+}
+
+/** Colour family for a status-like value; unknown values stay neutral. */
+export function statusTone(value: unknown): Tone {
+  const v = String(value ?? '').trim().toLowerCase()
+  if (!v) return 'neutral'
+  return (['good', 'warn', 'info', 'bad'] as Tone[]).find(t => TONES[t].includes(v)) ?? 'neutral'
+}
+
+/** Which tracker a to-do relates to ("P1 - OUTSTANDING PAYMENT…" etc.), so the task can link straight to it. */
+export function trackerForTask(title: string, team: string): string | null {
+  const p = /^P(\d)\b/.exec(title)?.[1]
+  const byPrefix: Record<string, string> = { '1': 'outstanding', '2': 'tenders', '3': 'pos', '4': 'logistics', '6': 'service' }
+  if (p && byPrefix[p]) return byPrefix[p]
+  if (/outstanding/i.test(title)) return 'outstanding'
+  return ({ Tendering: 'tenders', 'Logistics Follow-up': 'logistics', Sourcing: 'sourcing' } as Record<string, string>)[team] ?? null
+}
+
+export function sumBy(rows: Row[], key: string) {
+  return rows.reduce((n, r) => n + (Number(r[key]) || 0), 0)
+}
+
+/** Parses "#/tenders?status=Won&q=abc" into path + params. */
+export function parseHash(hash: string): { path: string; params: URLSearchParams } {
+  if (!hash.startsWith('#/')) return { path: '/today', params: new URLSearchParams() }
+  const [path, query = ''] = hash.slice(1).split('?')
+  return { path, params: new URLSearchParams(query) }
+}

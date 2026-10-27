@@ -1,1 +1,50 @@
 @import "tailwindcss";
+
+:root {
+  color-scheme: light dark;
+  --page: #f4f6f9; --card: #ffffff; --ink: #0f172a; --muted: #64748b; --line: #e2e8f0; --hover: #f1f5f9;
+  --brand: #1e293b; --brand-ink: #ffffff; --accent: #2563eb;
+  --good: #15803d; --good-soft: #dcfce7; --warn: #b45309; --warn-soft: #fef3c7; --bad: #b91c1c; --bad-soft: #fee2e2;
+  --info: #1d4ed8; --info-soft: #dbeafe; --neutral-soft: #e2e8f0;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #0b1120; --card: #131c2e; --ink: #e5e7eb; --muted: #94a3b8; --line: #263449; --hover: #1b2740;
+    --brand: #e2e8f0; --brand-ink: #0f172a; --accent: #60a5fa;
+    --good: #4ade80; --good-soft: #14532d; --warn: #fbbf24; --warn-soft: #422006; --bad: #f87171; --bad-soft: #450a0a;
+    --info: #93c5fd; --info-soft: #1e3a8a; --neutral-soft: #263449;
+  }
+}
+
+@theme inline {
+  --color-page: var(--page); --color-card: var(--card); --color-ink: var(--ink); --color-muted: var(--muted);
+  --color-line: var(--line); --color-hover: var(--hover); --color-brand: var(--brand); --color-brand-ink: var(--brand-ink);
+  --color-accent: var(--accent); --color-good: var(--good); --color-good-soft: var(--good-soft);
+  --color-warn: var(--warn); --color-warn-soft: var(--warn-soft); --color-bad: var(--bad); --color-bad-soft: var(--bad-soft);
+  --color-info: var(--info); --color-info-soft: var(--info-soft); --color-neutral-soft: var(--neutral-soft);
+}
+
+body { background: var(--page); color: var(--ink); font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif; -webkit-text-size-adjust: 100%; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+@layer components {
+  .card { @apply rounded-xl border border-line bg-card; }
+  .field { @apply rounded-lg border border-line bg-card px-2.5 py-1.5 text-sm text-ink placeholder:text-muted; min-height: 2.25rem; }
+  .btn { @apply inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-line bg-card px-3 py-1.5 text-sm font-medium text-ink hover:bg-hover disabled:opacity-40; min-height: 2.25rem; }
+  .btn-primary { @apply border-transparent bg-brand text-brand-ink hover:bg-brand hover:opacity-90; }
+  .btn-danger { @apply border-transparent bg-bad text-brand-ink hover:bg-bad hover:opacity-90; }
+  .btn-ghost { @apply border-transparent bg-transparent hover:bg-hover; }
+  .pill { @apply whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium text-muted hover:bg-hover; }
+  .pill-on { @apply bg-brand text-brand-ink hover:bg-brand; }
+  .badge { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium; }
+  .tone-good { @apply bg-good-soft text-good; }
+  .tone-warn { @apply bg-warn-soft text-warn; }
+  .tone-bad { @apply bg-bad-soft text-bad; }
+  .tone-info { @apply bg-info-soft text-info; }
+  .tone-neutral { @apply bg-neutral-soft text-muted; }
+  .row-late { background: color-mix(in srgb, var(--bad-soft) 55%, transparent); }
+  .row-due { background: color-mix(in srgb, var(--warn-soft) 55%, transparent); }
+  .row-done { opacity: .6; }
+  .skeleton { @apply animate-pulse rounded-lg bg-neutral-soft; }
+}

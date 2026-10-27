@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
 import { useProfile } from './profile'
 import { addDays, agingBuckets, countBy, inr, summarizeTasks, today, topDebtors } from './lib'
+import { trackerLink } from './router'
 import { PO_STATUSES } from './trackers/configs'
+import { StatTile } from './ui'
 
 type R = Record<string, any>
 
@@ -41,9 +43,11 @@ export default function Summary() {
       .map(r => ({ status: r.status, team: r.task_templates?.team ?? '—' })),
   ), [tasks, person])
   const totals = teamRows.reduce((a, r) => ({ total: a.total + r.total, done: a.done + r.done }), { total: 0, done: 0 })
+  const totalPct = totals.total ? Math.round((totals.done / totals.total) * 100) : 0
 
   const owed = out.reduce((n, r) => n + Math.max(Number(r.balance), 0), 0)
   const aging = agingBuckets(out as never)
+  const maxAge = Math.max(...Object.values(aging), 1)
   const debtors = topDebtors(out as never)
   const tenderCounts = countBy(tenders, r => r.status)
   const emdPending = tenders.filter(r => r.emd_status === 'Pending').reduce((n, r) => n + Number(r.emd_amt ?? 0), 0)
@@ -55,65 +59,86 @@ export default function Summary() {
   const awaiting = src.filter(r => r.status === 'Enquiry Sent').length
 
   return (
-    <div className="flex flex-col gap-6">
-      <section>
-        <h2 className="mb-2 font-semibold">To-do completion</h2>
-        <div className="mb-2 flex flex-wrap gap-2">
-          <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="rounded border p-1" aria-label="From" />
-          <input type="date" value={to} onChange={e => setTo(e.target.value)} className="rounded border p-1" aria-label="To" />
-          <button className="rounded bg-slate-100 px-2 text-sm" onClick={() => { setFrom(addDays(t, -6)); setTo(t) }}>Last 7 days</button>
-          <button className="rounded bg-slate-100 px-2 text-sm" onClick={() => { setFrom(addDays(t, -29)); setTo(t) }}>Last 30 days</button>
-          <input value={person} onChange={e => setPerson(e.target.value)} placeholder="Person…" className="w-32 rounded border p-1" />
-        </div>
-        <div className="overflow-auto">
-          <table className="w-full text-left">
-            <thead><tr className="border-b"><th>Team</th><th>Total</th><th>Done</th><th>Pending</th><th>% Done</th></tr></thead>
-            <tbody>
-              {teamRows.map(r => (
-                <tr key={r.team} className="border-b">
-                  <td className="py-1">{r.team}</td><td>{r.total}</td><td>{r.done}</td><td>{r.pending}</td>
-                  <td><span className="mr-2 inline-block h-2 w-16 rounded bg-slate-200 align-middle"><span className="block h-2 rounded bg-green-600" style={{ width: `${r.pct}%` }} /></span>{r.pct}%</td>
-                </tr>
-              ))}
-              <tr className="font-semibold"><td className="py-1">Total</td><td>{totals.total}</td><td>{totals.done}</td><td>{totals.total - totals.done}</td>
-                <td>{totals.total ? Math.round((totals.done / totals.total) * 100) : 0}%</td></tr>
-            </tbody>
-          </table>
-        </div>
+    <div className="flex flex-col gap-5">
+      <h1 className="text-xl font-semibold">Summary</h1>
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Key numbers">
+        <StatTile label="Payments due" value={`₹${inr(owed)}`} href={`#${trackerLink('outstanding')}`} />
+        <StatTile label="Past delivery date" value={lateDeliveries} tone={lateDeliveries ? 'bad' : undefined} href={`#${trackerLink('pos')}`} />
+        <StatTile label="Open complaints" value={openCalls} tone={openCalls ? 'warn' : undefined} href={`#${trackerLink('service', { status: 'Open' })}`} />
+        <StatTile label="EMD pending" value={`₹${inr(emdPending)}`} href={`#${trackerLink('tenders')}`} />
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2">
-        <Card title="Outstanding payments">
-          <Big label="Total balance due" value={`₹${inr(owed)}`} />
-          <Rows rows={Object.entries(aging).map(([k, v]) => [`${k} days`, `₹${inr(v)}`])} />
-          <p className="mt-2 text-xs font-medium text-slate-500">Top debtors</p>
-          <Rows rows={debtors.map(([c, v]) => [c, `₹${inr(v)}`])} />
+      <section className="card p-4">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <h2 className="mr-auto font-semibold">To-do completion <span className="badge tone-neutral">{totalPct}%</span></h2>
+          <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="field" aria-label="From" />
+          <input type="date" value={to} onChange={e => setTo(e.target.value)} className="field" aria-label="To" />
+          <button className="btn" onClick={() => { setFrom(addDays(t, -6)); setTo(t) }}>7 days</button>
+          <button className="btn" onClick={() => { setFrom(addDays(t, -29)); setTo(t) }}>30 days</button>
+          <input value={person} onChange={e => setPerson(e.target.value)} placeholder="Person…" className="field w-32" aria-label="Person" />
+        </div>
+        {teamRows.length === 0 ? <p className="py-6 text-center text-sm text-muted">No tasks in this range. Tasks are created each morning; use Admin → Generate today to create them now.</p> : (
+          <ul className="flex flex-col gap-2.5">
+            {teamRows.map(r => (
+              <li key={r.team}>
+                <div className="mb-1 flex justify-between text-sm"><span className="font-medium">{r.team}</span><span className="text-muted">{r.done}/{r.total} done · {r.pending} pending</span></div>
+                <div className="h-2 overflow-hidden rounded-full bg-neutral-soft" role="progressbar" aria-valuenow={r.pct} aria-valuemin={0} aria-valuemax={100} aria-label={`${r.team} completion`}>
+                  <div className="h-full rounded-full bg-good" style={{ width: `${r.pct}%` }} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2">
+        <Card title="Outstanding by age" href={`#${trackerLink('outstanding')}`}>
+          <ul className="flex flex-col gap-2">
+            {Object.entries(aging).map(([k, v]) => (
+              <li key={k}>
+                <div className="mb-0.5 flex justify-between text-sm"><span>{k} days</span><span className="font-medium">₹{inr(v)}</span></div>
+                <div className="h-2 overflow-hidden rounded-full bg-neutral-soft"><div className={`h-full rounded-full ${k === '90+' || k === '61-90' ? 'bg-bad' : k === '31-60' ? 'bg-warn' : 'bg-good'}`} style={{ width: `${(v / maxAge) * 100}%` }} /></div>
+              </li>
+            ))}
+          </ul>
+          <p className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-muted">Top debtors</p>
+          <Rows rows={debtors.map(([c, v]) => [c, `₹${inr(v)}`, `#${trackerLink('outstanding', { q: c })}`])} empty="Nothing outstanding" />
         </Card>
-        <Card title="Tenders">
-          <Rows rows={['To Quote', 'Quoted', 'Won', 'Lost', 'Cancelled'].map(s => [s, String(tenderCounts[s] ?? 0)])} />
-          <Big label="EMD pending" value={`₹${inr(emdPending)}`} />
+
+        <Card title="Tenders" href={`#${trackerLink('tenders')}`}>
+          <Rows rows={['To Quote', 'Quoted', 'Won', 'Lost', 'Cancelled'].map(s => [s, String(tenderCounts[s] ?? 0), `#${trackerLink('tenders', { status: s })}`])} />
         </Card>
-        <Card title="Purchase orders">
-          <Rows rows={PO_STATUSES.map(s => [s, String(poCounts[s] ?? 0)])} />
-          <Big label="Past client delivery date" value={String(lateDeliveries)} warn={lateDeliveries > 0} />
-          {seeMargin && <Big label="Total margin" value={`₹${inr(margin)}`} />}
+
+        <Card title="Purchase orders" href={`#${trackerLink('pos')}`}>
+          <Rows rows={PO_STATUSES.map(s => [s, String(poCounts[s] ?? 0), `#${trackerLink('pos', { status: s })}`])} />
+          {seeMargin && <p className="mt-3 flex justify-between border-t border-line pt-2 text-sm"><span className="text-muted">Total margin</span><b>₹{inr(margin)}</b></p>}
         </Card>
+
         <Card title="Service & sourcing">
-          <Big label="Open complaints" value={String(openCalls)} warn={openCalls > 0} />
-          <Big label="Warranties ending in 30 days" value={String(expiring)} />
-          <Big label="Sourcing awaiting quotes" value={String(awaiting)} />
+          <Rows rows={[
+            ['Open complaints', String(openCalls), `#${trackerLink('service', { status: 'Open' })}`],
+            ['Warranties ending in 30 days', String(expiring), `#${trackerLink('service')}`],
+            ['Sourcing awaiting quotes', String(awaiting), `#${trackerLink('sourcing', { status: 'Enquiry Sent' })}`],
+          ]} />
         </Card>
       </section>
     </div>
   )
 }
 
-const Card = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <div className="rounded border p-3"><h3 className="mb-2 font-semibold">{title}</h3>{children}</div>
+const Card = ({ title, href, children }: { title: string; href?: string; children: React.ReactNode }) => (
+  <div className="card p-4">
+    <h2 className="mb-3 flex items-center justify-between font-semibold">{title}{href && <a href={href} className="text-xs font-medium text-accent hover:underline">Open ↗</a>}</h2>
+    {children}
+  </div>
 )
-const Big = ({ label, value, warn }: { label: string; value: string; warn?: boolean }) => (
-  <p className="my-1 flex items-baseline justify-between text-sm"><span className="text-slate-600">{label}</span><b className={`text-lg ${warn ? 'text-red-600' : ''}`}>{value}</b></p>
-)
-const Rows = ({ rows }: { rows: [string, string][] }) => (
-  <ul className="text-sm">{rows.map(([k, v]) => <li key={k} className="flex justify-between border-b py-0.5"><span>{k}</span><span>{v}</span></li>)}</ul>
+const Rows = ({ rows, empty }: { rows: [string, string, string?][]; empty?: string }) => rows.length === 0 ? <p className="text-sm text-muted">{empty}</p> : (
+  <ul className="text-sm">
+    {rows.map(([k, v, href]) => (
+      <li key={k} className="border-b border-line last:border-0">
+        {href ? <a href={href} className="flex justify-between rounded px-1 py-1.5 hover:bg-hover"><span>{k}</span><span className="font-medium">{v}</span></a>
+          : <div className="flex justify-between px-1 py-1.5"><span>{k}</span><span className="font-medium">{v}</span></div>}
+      </li>
+    ))}
+  </ul>
 )

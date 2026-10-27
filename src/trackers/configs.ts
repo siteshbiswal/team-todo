@@ -16,6 +16,7 @@ export const PO_STATUSES = ['PO Received', 'Under Negotiation', 'Vendor PO Place
 
 export const TRACKERS: TrackerConfig[] = [
   {
+    cardFields: ['client', 'balance', 'days_overdue', 'next_followup'], actions: ['payment'],
     id: 'outstanding', title: 'Outstanding', path: 'outstanding', sheet: '1 Outstanding',
     table: 'outstanding', view: 'outstanding_v',
     columns: [
@@ -29,9 +30,10 @@ export const TRACKERS: TrackerConfig[] = [
     searchKeys: ['po_no', 'client', 'dept', 'invoice_no', 'contact', 'remarks'],
     editTeams: ['Sales / Pre-Sales', 'Accounts'],
     defaultSort: { key: 'days_overdue', dir: 'desc' },
-    rowClass: (r, t) => (Number(r.balance) <= 0 ? 'opacity-60' : Number(r.days_overdue) > 60 ? 'bg-red-50' : Number(r.balance) > 0 && due(r, t) ? 'bg-amber-50' : ''),
+    rowClass: (r, t) => (Number(r.balance) <= 0 ? 'row-done' : Number(r.days_overdue) > 60 ? 'row-late' : Number(r.balance) > 0 && due(r, t) ? 'row-due' : ''),
   },
   {
+    cardFields: ['bid_no', 'client', 'status', 'bid_open_date'],
     id: 'tenders', title: 'Tenders', path: 'tenders', sheet: '2 Tender Tracker',
     table: 'tenders', view: 'tenders',
     columns: [
@@ -48,9 +50,10 @@ export const TRACKERS: TrackerConfig[] = [
     searchKeys: ['bid_no', 'dept', 'client', 'item', 'make_vendor', 'quoted_by', 'remarks'],
     editTeams: ['Sales / Pre-Sales', 'Tendering'],
     defaultSort: { key: 'bid_open_date', dir: 'asc' },
-    rowClass: (r, t) => (['Won', 'Lost', 'Cancelled'].includes(String(r.status)) ? 'opacity-60' : due(r, t) ? 'bg-amber-50' : ''),
+    rowClass: (r, t) => (['Won', 'Lost', 'Cancelled'].includes(String(r.status)) ? 'row-done' : due(r, t) ? 'row-due' : ''),
   },
   {
+    cardFields: ['po_no', 'client', 'status', 'client_delivery_due'], actions: ['logistics'],
     id: 'pos', title: 'POs', path: 'pos', sheet: '3 PO Tracker',
     table: 'po_tracker', view: 'po_v', costTable: { table: 'po_costs', fk: 'po_id' },
     columns: [
@@ -68,9 +71,10 @@ export const TRACKERS: TrackerConfig[] = [
     searchKeys: ['po_no', 'tender_no', 'client', 'dept', 'item', 'vendor', 'negotiated_by', 'remarks'],
     editTeams: ['Sales / Pre-Sales', 'Tendering'],
     defaultSort: { key: 'client_delivery_due', dir: 'asc' },
-    rowClass: (r, t) => (FINISHED_PO.includes(String(r.status)) ? 'opacity-60' : typeof r.client_delivery_due === 'string' && r.client_delivery_due < t ? 'bg-red-50' : ''),
+    rowClass: (r, t) => (FINISHED_PO.includes(String(r.status)) ? 'row-done' : typeof r.client_delivery_due === 'string' && r.client_delivery_due < t ? 'row-late' : ''),
   },
   {
+    cardFields: ['po_no', 'client', 'delivery_status', 'next_followup'],
     id: 'logistics', title: 'Logistics', path: 'logistics', sheet: '4 Logistics',
     table: 'logistics', view: 'logistics_v',
     columns: [
@@ -88,9 +92,10 @@ export const TRACKERS: TrackerConfig[] = [
     searchKeys: ['po_no', 'client', 'item', 'vendor', 'transporter', 'docket_no', 'remarks'],
     editTeams: ['Logistics Follow-up', 'Sales / Pre-Sales'],
     defaultSort: { key: 'next_followup', dir: 'asc' },
-    rowClass: (r, t) => (r.delivery_status === 'Delivered' ? 'opacity-60' : ['Rejected', 'Held', 'Partial'].includes(String(r.delivery_status)) ? 'bg-red-50' : due(r, t) ? 'bg-amber-50' : ''),
+    rowClass: (r, t) => (r.delivery_status === 'Delivered' ? 'row-done' : ['Rejected', 'Held', 'Partial'].includes(String(r.delivery_status)) ? 'row-late' : due(r, t) ? 'row-due' : ''),
   },
   {
+    cardFields: ['po_no', 'complaint', 'status', 'under_warranty'],
     id: 'service', title: 'Service', path: 'service', sheet: '5 Service (Warranty)',
     table: 'service_calls', view: 'service_v',
     columns: [
@@ -105,9 +110,10 @@ export const TRACKERS: TrackerConfig[] = [
     searchKeys: ['po_no', 'client', 'item', 'complaint', 'assigned_to', 'remarks'],
     editTeams: ['Sales / Pre-Sales', 'Logistics Follow-up'],
     defaultSort: { key: 'complaint_date', dir: 'desc' },
-    rowClass: r => (r.status === 'Closed' ? 'opacity-60' : r.under_warranty === 'Expired' ? 'bg-slate-50' : ''),
+    rowClass: r => (r.status === 'Closed' ? 'row-done' : r.under_warranty === 'Expired' ? '' : ''),
   },
   {
+    cardFields: ['item_spec', 'status', 'required_by', 'next_followup'],
     id: 'sourcing', title: 'Sourcing', path: 'sourcing', sheet: '6 Sourcing',
     table: 'sourcing', view: 'sourcing_v', costTable: { table: 'sourcing_costs', fk: 'sourcing_id' },
     columns: [
@@ -128,7 +134,7 @@ export const TRACKERS: TrackerConfig[] = [
     searchKeys: ['item_spec', 'category', 'tender_no', 'po_no', 'vendor1', 'vendor2', 'vendor3', 'sourced_by', 'remarks'],
     editTeams: ['Sourcing', 'Tendering', 'Sales / Pre-Sales'],
     defaultSort: { key: 'next_followup', dir: 'asc' },
-    rowClass: (r, t) => (r.status === 'Closed' ? 'opacity-60' : due(r, t) ? 'bg-amber-50' : ''),
+    rowClass: (r, t) => (r.status === 'Closed' ? 'row-done' : due(r, t) ? 'row-due' : ''),
   },
 ]
 

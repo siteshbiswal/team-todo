@@ -6,6 +6,7 @@ import { ToastProvider } from './toast'
 import ErrorBoundary from './ErrorBoundary'
 import { Link, useRoute } from './router'
 import { TRACKERS } from './trackers/configs'
+import { Skeleton } from './ui'
 import Login from './Login'
 import Tasks from './Tasks'
 
@@ -13,48 +14,63 @@ const Summary = lazy(() => import('./Summary'))
 const Admin = lazy(() => import('./Admin'))
 const TrackerTable = lazy(() => import('./TrackerTable'))
 
+const ROLE_LABEL = { admin: 'Admin', head: 'Head', member: 'Member' } as const
+
 function Shell() {
   const { profile, loading } = useProfile()
-  const path = useRoute()
+  const { path, params } = useRoute()
+  const tracker = TRACKERS.find(t => path === `/${t.path}`)
+  const label = path === '/board' ? 'Board' : path === '/summary' ? 'Summary' : path === '/admin' ? 'Admin' : tracker?.title ?? 'Today'
 
-  if (loading) return <p className="p-4 text-slate-500">Loading…</p>
+  useEffect(() => { document.title = `${label} · Team To-Do` }, [label])
+
+  if (loading) return <div className="mx-auto max-w-3xl p-4"><Skeleton /></div>
   if (!profile) {
     return (
       <div className="mx-auto mt-20 max-w-md p-4 text-center">
         <p className="mb-3">Your account has no profile yet. Ask an admin to check your access.</p>
-        <button className="rounded bg-slate-800 px-3 py-1 text-white" onClick={() => supabase.auth.signOut()}>Sign out</button>
+        <button className="btn btn-primary" onClick={() => supabase.auth.signOut()}>Sign out</button>
       </div>
     )
   }
 
-  const nav = [
-    { to: '/today', label: 'Today' }, { to: '/board', label: 'Board' }, { to: '/summary', label: 'Summary' },
-    ...TRACKERS.map(t => ({ to: `/${t.path}`, label: t.title })),
-    ...(profile.role === 'admin' ? [{ to: '/admin', label: 'Admin' }] : []),
-  ]
-  const tracker = TRACKERS.find(t => path === `/${t.path}`)
+  const pill = (to: string, text: string) => (
+    <Link key={to} to={to} className={`pill ${path === to ? 'pill-on' : ''}`}>{text}</Link>
+  )
 
   return (
-    <div className="mx-auto max-w-[110rem] p-4">
-      <header className="mb-4 flex items-center justify-between gap-3">
-        <nav className="flex gap-1 overflow-x-auto pb-1" aria-label="Main">
-          {nav.map(n => (
-            <Link key={n.to} to={n.to} className={`whitespace-nowrap rounded px-3 py-1 ${path === n.to ? 'bg-slate-800 text-white' : 'bg-slate-100'}`}>{n.label}</Link>
-          ))}
-        </nav>
-        <span className="flex items-center gap-3 whitespace-nowrap text-sm text-slate-500">
-          {profile.name}
-          <button onClick={() => supabase.auth.signOut()}>Sign out</button>
-        </span>
+    <>
+      <header className="sticky top-0 z-30 border-b border-line bg-card/90 backdrop-blur">
+        <div className="mx-auto flex max-w-[110rem] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2">
+          <Link to="/today" className="flex items-center gap-2 font-semibold">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-sm text-brand-ink" aria-hidden>✓</span>
+            <span className="hidden sm:inline">Team To-Do</span>
+          </Link>
+          <nav aria-label="Main" className="order-last -mx-1 flex w-full items-center gap-1 overflow-x-auto px-1 pb-1 md:order-none md:w-auto md:flex-1 md:pb-0">
+            {pill('/today', 'Today')}{pill('/board', 'Board')}{pill('/summary', 'Summary')}
+            <span className="mx-1 h-5 w-px shrink-0 bg-line" aria-hidden />
+            {TRACKERS.map(t => pill(`/${t.path}`, t.title))}
+            {profile.role === 'admin' && (<><span className="mx-1 h-5 w-px shrink-0 bg-line" aria-hidden />{pill('/admin', 'Admin')}</>)}
+          </nav>
+          <div className="ml-auto flex items-center gap-2 text-sm md:ml-0">
+            <span className="hidden text-right leading-tight sm:block">
+              <span className="block font-medium">{profile.name}</span>
+              <span className="block text-xs text-muted">{ROLE_LABEL[profile.role]}{profile.team ? ` · ${profile.team}` : ''}</span>
+            </span>
+            <button className="btn" onClick={() => supabase.auth.signOut()}>Sign out</button>
+          </div>
+        </div>
       </header>
-      <Suspense fallback={<p className="text-slate-500">Loading…</p>}>
-        {path === '/board' ? <Tasks mode="board" />
-          : path === '/summary' ? <Summary />
-          : path === '/admin' && profile.role === 'admin' ? <Admin />
-          : tracker ? <TrackerTable cfg={tracker} />
-          : <Tasks mode="today" />}
-      </Suspense>
-    </div>
+      <main className="mx-auto max-w-[110rem] p-4">
+        <Suspense fallback={<Skeleton />}>
+          {path === '/board' ? <Tasks mode="board" />
+            : path === '/summary' ? <Summary />
+            : path === '/admin' && profile.role === 'admin' ? <Admin />
+            : tracker ? <TrackerTable cfg={tracker} initial={{ q: params.get('q') ?? '', status: params.get('status') ?? '' }} />
+            : <Tasks mode="today" />}
+        </Suspense>
+      </main>
+    </>
   )
 }
 
