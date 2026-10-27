@@ -15,7 +15,7 @@ const Summary = lazy(() => import('./Summary'))
 const Admin = lazy(() => import('./Admin'))
 const TrackerTable = lazy(() => import('./TrackerTable'))
 
-const ROLE_LABEL = { admin: 'Admin', head: 'Head', member: 'Member' } as const
+const ROLE_LABEL = { admin: 'Admin', member: 'Member' } as const
 
 function Shell() {
   const { profile, loading } = useProfile()

@@ -49,7 +49,15 @@ module.exports = async browser => {
   await a.context.close()
 
   section('Functional: roles')
-  for (const [who, expectCosts, expectAdmin, expectAdd] of [['head', true, false, true], ['sales', false, false, true], ['logistics', false, false, false]]) {
+  a = await openApp(browser, { profile: 'admin', hash: '#/pos' }); await a.page.waitForSelector('table')
+  ok(await a.page.getByText('Vendor PO Value').count() === 1 && await a.page.getByRole('link', { name: 'Admin' }).count() === 1, 'admin: sees costs and the Admin tab')
+  ok(await a.page.locator('header').innerText().then(t => /Admin/.test(t) && !/Head/.test(t)), 'header shows role Admin (no Head role exists)')
+  await a.page.goto(BASE + '#/admin'); await a.page.getByRole('button', { name: 'Users' }).click()
+  ok(await appears(a.page.getByLabel('Role').first()) && await a.page.getByLabel('Role').first().locator('option').allInnerTexts().then(o => o.join() === 'member,admin'), 'role choices are member and admin only')
+  ok(await a.page.getByLabel('Role').first().isDisabled(), 'you cannot change your own role')
+  ok(await a.page.getByRole('button', { name: 'Revoke' }).first().isDisabled(), 'you cannot revoke yourself')
+  await a.context.close()
+  for (const [who, expectCosts, expectAdmin, expectAdd] of [['sales', false, false, true], ['logistics', false, false, false]]) {
     a = await openApp(browser, { profile: who, hash: '#/pos' }); await a.page.waitForSelector('table')
     ok((await a.page.getByText('Vendor PO Value').count() === 1) === expectCosts, `${who}: cost columns ${expectCosts ? 'visible' : 'hidden'}`)
     ok((await a.page.getByRole('link', { name: 'Admin' }).count() === 1) === expectAdmin, `${who}: Admin tab ${expectAdmin ? 'visible' : 'hidden'}`)

@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from './supabase'
 
-export interface Profile { id: string; name: string; role: 'member' | 'head' | 'admin'; team: string | null; active: boolean; email?: string | null }
+export interface Profile { id: string; name: string; role: 'member' | 'admin'; team: string | null; active: boolean; email?: string | null }
 
 const Ctx = createContext<{ profile: Profile | null; loading: boolean }>({ profile: null, loading: true })
 export const useProfile = () => useContext(Ctx)

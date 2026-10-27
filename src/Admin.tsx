@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
 import { useToast } from './toast'
 import { today } from './lib'
+import { useProfile } from './profile'
 import { EmptyState, Segmented, Skeleton } from './ui'
 
 interface Template {
@@ -9,7 +10,7 @@ interface Template {
   freq_rule: { dow?: number; dom?: number; month?: number }
   res1: string | null; res2: string | null; final_res: string | null; remarks: string | null; active: boolean
 }
-interface Profile { id: string; name: string; role: 'member' | 'head' | 'admin'; team: string | null; email: string | null; active: boolean }
+interface Profile { id: string; name: string; role: 'member' | 'admin'; team: string | null; email: string | null; active: boolean }
 
 const FREQS = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'per_event']
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -148,6 +149,7 @@ function TaskEditor() {
 
 function UserEditor() {
   const toast = useToast()
+  const { profile: me } = useProfile()
   const [rows, setRows] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -161,7 +163,7 @@ function UserEditor() {
 
   async function save(id: string, patch: Partial<Profile>) {
     const { error } = await supabase.from('profiles').update(patch).eq('id', id)
-    if (error) toast(error.message, 'error')
+    if (error) toast(/at least one active admin/.test(error.message) ? 'There must always be at least one active admin.' : error.message, 'error')
     else setRows(rs => rs.map(r => (r.id === id ? { ...r, ...patch } : r)))
   }
 
@@ -169,7 +171,7 @@ function UserEditor() {
     <div>
       <p className="mb-3 rounded-lg bg-info-soft px-3 py-2 text-sm text-info">
         Ask colleagues to open the app and sign in once — they appear here. A member sees to-dos where their <b>name</b> appears in 1st/2nd responsible (e.g. “Sutar”)
-        and can edit the trackers of their <b>team</b>. Heads see every to-do, can edit every tracker and see costs and margins. Admins can do all of that plus manage users and tasks.
+        and can edit the trackers of their <b>team</b>. Admins see every to-do, edit every tracker, see costs and margins, and manage users and tasks.
       </p>
       {rows.some(p => !p.active) && (
         <p className="mb-3 rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn">
@@ -184,8 +186,9 @@ function UserEditor() {
                 <input defaultValue={p.name} className="field mt-0.5 w-full" onBlur={e => e.target.value && e.target.value !== p.name && save(p.id, { name: e.target.value })} />
               </label>
               <label className="text-xs font-medium text-muted">Role
-                <select value={p.role} className="field mt-0.5 block w-full" onChange={e => save(p.id, { role: e.target.value as Profile['role'] })}>
-                  {['member', 'head', 'admin'].map(r => <option key={r}>{r}</option>)}
+                <select value={p.role} disabled={p.id === me?.id} title={p.id === me?.id ? "You can't change your own role" : undefined}
+                  className="field mt-0.5 block w-full" onChange={e => save(p.id, { role: e.target.value as Profile['role'] })}>
+                  {['member', 'admin'].map(r => <option key={r}>{r}</option>)}
                 </select>
               </label>
               <label className="text-xs font-medium text-muted">Team
@@ -196,7 +199,8 @@ function UserEditor() {
               </label>
               <p className="truncate text-sm text-muted" title={p.email ?? ''}>{p.email ?? ''}</p>
               {p.active
-                ? <button className="btn btn-ghost text-xs" onClick={() => confirm(`Revoke access for ${p.name}?`) && save(p.id, { active: false })}>Revoke</button>
+                ? <button className="btn btn-ghost text-xs" disabled={p.id === me?.id} title={p.id === me?.id ? "You can't revoke yourself" : undefined}
+                    onClick={() => confirm(`Revoke access for ${p.name}?`) && save(p.id, { active: false })}>Revoke</button>
                 : <button className="btn btn-primary" onClick={() => save(p.id, { active: true })}>Approve</button>}
             </li>
           ))}

@@ -81,7 +81,7 @@ export default function Tasks({ mode }: { mode: 'today' | 'board' }) {
   const isMine = (r: Item) => `${r.task_templates.res1 ?? ''} ${r.task_templates.res2 ?? ''}`.toLowerCase().includes(name)
   const [mineChecked, setMineChecked] = useState(false)
   useEffect(() => {
-    // admins/heads whose name appears in no task would otherwise see an empty list on first load
+    // admins whose name appears in no task would otherwise see an empty list on first load
     if (loading || mineChecked || mode !== 'today') return
     setMineChecked(true)
     if (profile?.role !== 'member' && !rows.some(isMine)) setMine(false)

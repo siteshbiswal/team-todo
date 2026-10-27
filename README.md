@@ -9,8 +9,9 @@ React + Supabase app replacing the team's Excel workbook: recurring to-do list p
   best vendor, margin %) are computed in the database. Inline editing, search, sort, status filter, Excel export, admin Excel import.
 - **Follow-ups:** everything with a next-follow-up date due today or earlier is listed on Today with a one-click "Done".
 - **Summary:** to-do completion by team/person/date range, outstanding ageing and top debtors, tender/PO status, late deliveries, open complaints.
-- **Access:** all signed-in staff can view every tracker; only the owning team (or heads/admins) can edit; vendor costs, rates and margins
-  are visible to heads/admins only; deletes and audit log are admin-only. Enforced by Postgres row-level security.
+- **Access:** all signed-in staff can view every tracker; only the owning team (or an admin) can edit; vendor costs, rates and margins
+  are visible to admins only; deletes and the audit log are admin-only.
+  There are two roles, **admin** and **member**; the last active admin can't be demoted or revoked. Enforced by Postgres row-level security.
 
 ## Setup
 1. Copy `.env.example` to `.env` and fill `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`.
@@ -22,7 +23,7 @@ First user: sign in once, then in the Supabase SQL editor run
 `update profiles set role='admin', name='<name as in task sheet>' where id = '<user id>';`
 Then use the Admin tab to set each person's name, role and team. A member sees to-dos where their **name** appears in the
 1st/2nd responsible field, and can edit the trackers belonging to their **team**
-(Sales / Pre-Sales, Tendering, Logistics Follow-up, Sourcing, Accounts, Admin). Heads see every to-do and can edit every tracker.
+(Sales / Pre-Sales, Tendering, Logistics Follow-up, Sourcing, Accounts, Admin). Admins see every to-do and can edit every tracker.
 New accounts must be **approved** in Admin → Users before they can see anything.
 
 ## Importing the workbook
@@ -35,4 +36,4 @@ Admin → open a tracker → **Import Excel** and pick the workbook. The sheet i
   `functional` (every screen and role), `robustness` (API failures, hostile data, double taps, 5,000-row performance),
   `a11y` (axe WCAG 2.1 AA in light and dark, keyboard and focus), `responsive` (7 screen widths, touch targets), `excel` (export/import, time zones).
   Run one with `npm run e2e -- a11y`; set `WORKBOOK=/path/to/workbook.xlsx` to also test importing the real workbook.
-- Database access rules are tested by running as each role (pending, member, head, admin, signed-out) inside a rolled-back transaction.
+- Database access rules are tested by running as each role (pending, member, admin, signed-out) inside a rolled-back transaction.

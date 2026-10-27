@@ -17,7 +17,6 @@ const section = name => console.log(`\n# ${name}`)
 
 const PROFILES = {
   admin: { id: 'u1', name: 'Sitesh Biswal', role: 'admin', team: null, active: true, email: 'admin@co.com' },
-  head: { id: 'u1', name: 'Hema Head', role: 'head', team: 'Accounts', active: true, email: 'head@co.com' },
   sales: { id: 'u1', name: 'Sagarika', role: 'member', team: 'Sales / Pre-Sales', active: true, email: 's@co.com' },
   logistics: { id: 'u1', name: 'Hari', role: 'member', team: 'Logistics Follow-up', active: true, email: 'h@co.com' },
   pending: { id: 'u1', name: 'newbie', role: 'member', team: null, active: false, email: 'new@co.com' },
