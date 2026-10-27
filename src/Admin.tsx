@@ -169,7 +169,7 @@ function UserEditor() {
     <div>
       <p className="mb-3 rounded-lg bg-info-soft px-3 py-2 text-sm text-info">
         Ask colleagues to open the app and sign in once — they appear here. A member sees to-dos where their <b>name</b> appears in 1st/2nd responsible (e.g. “Sutar”)
-        and can edit the trackers of their <b>team</b>. Heads and admins can edit every tracker and see costs and margins.
+        and can edit the trackers of their <b>team</b>. Heads see every to-do, can edit every tracker and see costs and margins. Admins can do all of that plus manage users and tasks.
       </p>
       {rows.some(p => !p.active) && (
         <p className="mb-3 rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn">

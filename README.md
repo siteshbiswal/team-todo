@@ -22,7 +22,8 @@ First user: sign in once, then in the Supabase SQL editor run
 `update profiles set role='admin', name='<name as in task sheet>' where id = '<user id>';`
 Then use the Admin tab to set each person's name, role and team. A member sees to-dos where their **name** appears in the
 1st/2nd responsible field, and can edit the trackers belonging to their **team**
-(Sales / Pre-Sales, Tendering, Logistics Follow-up, Sourcing, Accounts, Admin).
+(Sales / Pre-Sales, Tendering, Logistics Follow-up, Sourcing, Accounts, Admin). Heads see every to-do and can edit every tracker.
+New accounts must be **approved** in Admin → Users before they can see anything.
 
 ## Importing the workbook
 Admin → open a tracker → **Import Excel** and pick the workbook. The sheet is found by its original name
