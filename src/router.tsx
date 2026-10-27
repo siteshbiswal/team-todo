@@ -13,8 +13,8 @@ export function useRoute() {
   return { ...parseHash(hash), hash }
 }
 
-export function Link({ to, className, children, onClick }: { to: string; className?: string; children: ReactNode; onClick?: () => void }) {
-  return <a href={`#${to}`} className={className} onClick={onClick}>{children}</a>
+export function Link({ to, className, children, onClick, ariaLabel }: { to: string; className?: string; children: ReactNode; onClick?: () => void; ariaLabel?: string }) {
+  return <a href={`#${to}`} className={className} onClick={onClick} aria-label={ariaLabel}>{children}</a>
 }
 
 export const trackerLink = (path: string, params: Record<string, string> = {}) => {

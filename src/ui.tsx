@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { statusTone } from './lib'
 
 export const Badge = ({ value, tone }: { value: unknown; tone?: 'good' | 'warn' | 'bad' | 'info' | 'neutral' }) =>
@@ -29,19 +29,35 @@ export const StatTile = ({ label, value, tone, href }: { label: string; value: R
   return href ? <a href={href} className={`${cls} hover:bg-hover`}>{inner}</a> : <div className={cls}>{inner}</div>
 }
 
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
 export function Drawer({ title, onClose, children, footer }: { title: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
+  const ref = useRef<HTMLElement>(null)
+  const titleId = useId()
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const opener = document.activeElement as HTMLElement | null
+    const items = () => [...(ref.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])].filter(el => el.offsetParent !== null)
+    items()[0]?.focus() // move focus into the dialog
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') return onClose()
+      if (e.key !== 'Tab') return
+      const f = items()
+      if (!f.length) return
+      const first = f[0], last = f[f.length - 1], active = document.activeElement
+      if (!ref.current?.contains(active)) { e.preventDefault(); first.focus() }
+      else if (e.shiftKey && active === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus() }
+    }
     window.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev }
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev; opener?.focus() } // give focus back
   }, [onClose])
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-black/40" onMouseDown={e => e.target === e.currentTarget && onClose()}>
-      <aside role="dialog" aria-modal="true" className="flex h-full w-full max-w-xl flex-col bg-card shadow-xl">
+      <aside ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId} className="flex h-full w-full max-w-xl flex-col bg-card shadow-xl">
         <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
-          <h2 className="min-w-0 truncate font-semibold">{title}</h2>
+          <h2 id={titleId} className="min-w-0 truncate font-semibold">{title}</h2>
           <button className="btn btn-ghost" onClick={onClose} aria-label="Close">✕</button>
         </header>
         <div className="flex-1 overflow-y-auto px-4 py-3">{children}</div>

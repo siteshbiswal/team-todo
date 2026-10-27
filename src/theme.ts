@@ -33,7 +33,7 @@ export function useTheme() {
   }, [pref])
 
   const setPref = (next: ThemePref) => {
-    try { next === 'system' ? localStorage.removeItem(KEY) : localStorage.setItem(KEY, next) } catch { /* private mode: still works for this visit */ }
+    try { if (next === 'system') localStorage.removeItem(KEY); else localStorage.setItem(KEY, next) } catch { /* private mode: still works for this visit */ }
     setPrefState(next)
   }
   return { pref, resolved, setPref }

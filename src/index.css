@@ -2,7 +2,7 @@
 
 :root {
   color-scheme: light dark;
-  --page: #f4f6f9; --card: #ffffff; --ink: #0f172a; --muted: #64748b; --line: #e2e8f0; --hover: #f1f5f9;
+  --page: #f4f6f9; --card: #ffffff; --ink: #0f172a; --muted: #4b596d; --line: #d5dde8; --hover: #f1f5f9;
   --brand: #1e293b; --brand-ink: #ffffff; --accent: #2563eb;
   --good: #15803d; --good-soft: #dcfce7; --warn: #b45309; --warn-soft: #fef3c7; --bad: #b91c1c; --bad-soft: #fee2e2;
   --info: #1d4ed8; --info-soft: #dbeafe; --neutral-soft: #e2e8f0;
@@ -33,6 +33,7 @@
   --color-info: var(--info); --color-info-soft: var(--info-soft); --color-neutral-soft: var(--neutral-soft);
 }
 
+main, aside { overflow-wrap: anywhere; }
 body { transition: background-color .2s, color .2s; background: var(--page); color: var(--ink); font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif; -webkit-text-size-adjust: 100%; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

@@ -85,10 +85,13 @@ export default function TrackerTable({ cfg, initial }: { cfg: TrackerConfig; ini
       const v = r[c.key]
       if (v === null || v === undefined || v === '') return null
       if (c.type === 'number' || c.type === 'money') return { value: Number(v), type: Number }
-      if (c.type === 'date') return { value: new Date(String(v) + 'T00:00:00'), type: Date, format: 'dd-mm-yyyy' }
+      if (c.type === 'date') { // UTC midnight, so the day never shifts in time zones ahead of UTC (e.g. India)
+        const [y, m, d] = String(v).split('-').map(Number)
+        return { value: new Date(Date.UTC(y, m - 1, d)), type: Date, format: 'dd-mm-yyyy' }
+      }
       return { value: String(v), type: String }
     }))
-    await writeXlsxFile([header, ...body] as never).toFile(`${cfg.title}-${todayStr}.xlsx`)
+    await writeXlsxFile([header, ...body] as never, { sheet: cfg.sheet }).toFile(`${cfg.title}-${todayStr}.xlsx`)
   }
 
   function cell(row: Row, c: Column) {
@@ -123,7 +126,7 @@ export default function TrackerTable({ cfg, initial }: { cfg: TrackerConfig; ini
     if (v === null || v === undefined || v === '') return null
     if (isStatusLike(key)) return <Badge value={v} />
     const val = c.type === 'money' ? `₹${inr(v)}` : key === 'days_overdue' ? `${v} days` : String(v)
-    return <span><span className="text-xs opacity-70">{c.label}: </span><span className="text-ink">{val}</span></span>
+    return <span><span className="text-xs">{c.label}: </span><span className="text-ink">{val}</span></span>
   }
 
   return (
@@ -180,7 +183,7 @@ export default function TrackerTable({ cfg, initial }: { cfg: TrackerConfig; ini
             <table className="w-full border-collapse text-left text-sm">
               <thead className="sticky top-0 z-10 bg-hover">
                 <tr>
-                  <th className="w-8 border-b border-line" />
+                  <th className="w-8 border-b border-line"><span className="sr-only">Open</span></th>
                   {cols.map(c => (
                     <th key={c.key} onClick={() => setSort(s => ({ key: c.key, dir: s.key === c.key && s.dir === 'asc' ? 'desc' : 'asc' }))} aria-sort={sort.key === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
                       className={`cursor-pointer whitespace-nowrap border-b border-line px-2 py-2 text-xs font-semibold uppercase tracking-wide text-muted ${colWidth(c)}`}>
@@ -211,8 +214,8 @@ export default function TrackerTable({ cfg, initial }: { cfg: TrackerConfig; ini
           {/* mobile cards */}
           <ul className="flex flex-col gap-2 md:hidden">
             {visible.map(r => (
-              <li key={String(r.id)}>
-                <button onClick={() => setOpenId(r.id)} className={`card w-full px-3 py-2.5 text-left ${cfg.rowClass?.(r, todayStr) ?? ''}`}>
+              <li key={String(r.id)} className="min-w-0">
+                <button onClick={() => setOpenId(r.id)} className={`card w-full min-w-0 px-3 py-2.5 text-left [overflow-wrap:anywhere] ${cfg.rowClass?.(r, todayStr) ?? ''}`}>
                   <span className="block font-medium">{String(r[cfg.cardFields[0]] ?? '—')}</span>
                   <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
                     {cfg.cardFields.slice(1).map(k => <span key={k}>{cardVal(r, k)}</span>)}
@@ -241,11 +244,19 @@ export default function TrackerTable({ cfg, initial }: { cfg: TrackerConfig; ini
   )
 }
 
-function AddForm({ cfg, poNos, onSubmit, onCancel }: { cfg: TrackerConfig; poNos: string[]; onSubmit: (v: Record<string, string>) => void; onCancel: () => void }) {
+function AddForm({ cfg, poNos, onSubmit, onCancel }: { cfg: TrackerConfig; poNos: string[]; onSubmit: (v: Record<string, string>) => void | Promise<void>; onCancel: () => void }) {
   const [v, setV] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState(false)
+  const inFlight = useRef(false)
   const req = cfg.columns.filter(c => c.required)
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (inFlight.current) return // a double tap must not create two rows
+    inFlight.current = true; setBusy(true)
+    try { await onSubmit(v) } finally { inFlight.current = false; setBusy(false) }
+  }
   return (
-    <form onSubmit={e => { e.preventDefault(); onSubmit(v) }} className="card mb-3 flex flex-wrap items-end gap-3 p-3">
+    <form onSubmit={submit} className="card mb-3 flex flex-wrap items-end gap-3 p-3">
       {req.map((c, i) => (
         <label key={c.key} className="text-xs font-medium text-muted">{c.label} *
           {c.poPicker ? (
@@ -258,7 +269,7 @@ function AddForm({ cfg, poNos, onSubmit, onCancel }: { cfg: TrackerConfig; poNos
           )}
         </label>
       ))}
-      <button className="btn btn-primary">Create &amp; open</button>
+      <button className="btn btn-primary" disabled={busy}>{busy ? 'Creating…' : 'Create & open'}</button>
       <button type="button" onClick={onCancel} className="btn btn-ghost">Cancel</button>
     </form>
   )

@@ -64,8 +64,10 @@ export function useTracker(cfg: TrackerConfig) {
 
   const importXlsx = useCallback(async (file: File) => {
     try {
-      const { readSheet } = await import('read-excel-file/browser')
-      const [head, ...body] = (await readSheet(file, cfg.sheet)) as unknown[][]
+      // the workbook's own sheet name first; any other file (e.g. a re-saved export) uses its first sheet
+      const { default: readAll } = await import('read-excel-file/browser')
+      const sheets = (await readAll(file)) as { sheet: string; data: unknown[][] }[]
+      const [head, ...body] = (sheets.find(s => s.sheet === cfg.sheet) ?? sheets[0]).data
       const byLabel = new Map(cfg.columns.map(c => [c.label.toLowerCase(), c]))
       const map = head.map(h => byLabel.get(String(h ?? '').trim().toLowerCase()))
       let ok = 0, skipped = 0

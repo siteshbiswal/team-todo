@@ -74,7 +74,7 @@ export default function Tasks({ mode }: { mode: 'today' | 'board' }) {
     const s = (v: unknown) => (v ? { value: String(v), type: String } : null)
     const body = shown.map(r => [s(r.due_date), s(r.task_templates.team), s(r.task_templates.title), s(r.task_templates.freq_text), s(r.task_templates.res1),
       s(r.task_templates.res2), s(r.task_templates.final_res), s(r.status), s(r.done_at && new Date(r.done_at).toLocaleString('en-IN')), s(r.remarks)])
-    await writeXlsxFile([head, ...body] as never).toFile(`Tasks-${from}-to-${to}.xlsx`)
+    await writeXlsxFile([head, ...body] as never, { sheet: 'Team To-Do' }).toFile(`Tasks-${from}-to-${to}.xlsx`)
   }
 
   const name = profile?.name.toLowerCase() ?? ''
@@ -163,7 +163,7 @@ export default function Tasks({ mode }: { mode: 'today' | 'board' }) {
               </summary>
               <ul className="flex flex-col gap-2">
                 {items.map(r => <TaskCard key={r.id} r={r} today={t} picked={picked.has(r.id)}
-                  onPick={on => setPicked(p => { const n = new Set(p); on ? n.add(r.id) : n.delete(r.id); return n })} onUpdate={update} />)}
+                  onPick={on => setPicked(p => { const n = new Set(p); if (on) n.add(r.id); else n.delete(r.id); return n })} onUpdate={update} />)}
               </ul>
             </details>
           ))}
@@ -198,7 +198,7 @@ function TaskCard({ r, today: t, picked, onPick, onUpdate }: {
         <button onClick={() => onUpdate(r.id, { status: done ? 'Pending' : 'Done' })} aria-label={done ? 'Mark as pending' : 'Mark as done'}
           className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-sm ${done ? 'border-good bg-good text-brand-ink' : 'border-line hover:border-good'}`}>{done ? '✓' : ''}</button>
         <div className="min-w-0 flex-1">
-          <p className={`font-medium ${done ? 'text-muted line-through' : ''}`}>{tt.title}</p>
+          <p className={`font-medium [overflow-wrap:anywhere] ${done ? 'text-muted line-through' : ''}`}>{tt.title}</p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
             <span>{tt.freq_text}</span><span>· due {r.due_date}</span>
             {late > 0 && <span className="badge tone-bad">Overdue {late}d</span>}

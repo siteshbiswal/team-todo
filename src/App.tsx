@@ -60,7 +60,7 @@ function Shell() {
     <>
       <header className="sticky top-0 z-30 border-b border-line bg-card/90 backdrop-blur">
         <div className="mx-auto flex max-w-[110rem] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2">
-          <Link to="/today" className="flex items-center gap-2 font-semibold">
+          <Link to="/today" ariaLabel="Team To-Do, go to Today" className="flex min-h-9 items-center gap-2 font-semibold">
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-sm text-brand-ink" aria-hidden>✓</span>
             <span className="hidden sm:inline">Team To-Do</span>
           </Link>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
 import { useToast } from './toast'
 import { today } from './lib'
@@ -61,11 +61,23 @@ function TaskEditor() {
     else toast('Created for today')
   }
 
+  const adding = useRef(false)
   async function add() {
+    if (adding.current) return // one tap = one task
+    adding.current = true
+    // starts inactive so a half-filled task never lands on everyone's Today list; tick "Active" when ready
     const { data, error } = await supabase.from('task_templates')
-      .insert({ team: 'Accounts', title: 'New task', freq_type: 'daily', freq_text: 'Daily' }).select().single()
+      .insert({ team: 'Accounts', title: 'New task (edit me)', freq_type: 'daily', freq_text: 'Daily', active: false }).select().single()
+    adding.current = false
     if (error) toast(error.message, 'error')
-    else setRows(rs => [data as Template, ...rs])
+    else { setRows(rs => [data as Template, ...rs]); toast('Task added as inactive — fill it in, then tick Active') }
+  }
+
+  async function remove(r: Template) {
+    if (!confirm(`Delete “${r.title}” and all its to-do history? Use Active=off to just stop it.`)) return
+    const { error } = await supabase.from('task_templates').delete().eq('id', r.id)
+    if (error) toast(error.message, 'error')
+    else { setRows(rs => rs.filter(x => x.id !== r.id)); toast('Task deleted') }
   }
 
   const text = (r: Template, k: 'title' | 'res1' | 'res2' | 'final_res' | 'remarks', label: string) => (
@@ -124,6 +136,7 @@ function TaskEditor() {
               <div className="mt-3 flex items-center gap-3 text-sm">
                 <label className="flex items-center gap-2"><input type="checkbox" checked={r.active} onChange={e => save(r.id, { active: e.target.checked })} /> Active</label>
                 {r.freq_type === 'per_event' && <button onClick={() => createToday(r.id)} className="btn ml-auto">Create for today</button>}
+                <button onClick={() => remove(r)} className={`btn btn-ghost text-bad ${r.freq_type === 'per_event' ? '' : 'ml-auto'}`}>Delete</button>
               </div>
             </li>
           ))}

@@ -34,7 +34,7 @@ export default function ThemeToggle({ className = '' }: { className?: string }) 
         return (
           <button key={o.value} ref={el => { refs.current[i] = el }} role="radio" aria-checked={on} aria-label={o.label}
             tabIndex={on ? 0 : -1} onClick={() => setPref(o.value)} onKeyDown={e => onKey(e, i)} data-theme-option={o.value}
-            className={`flex h-7 min-w-7 items-center justify-center gap-1 rounded-full px-2 text-sm transition-colors ${on ? 'bg-brand text-brand-ink' : 'text-muted hover:bg-hover'}`}>
+            className={`flex h-8 min-w-8 items-center justify-center gap-1 rounded-full px-2 text-sm transition-colors ${on ? 'bg-brand text-brand-ink' : 'text-muted hover:bg-hover'}`}>
             <Icon d={o.icon} />
             {on && <span className="hidden text-xs font-medium 2xl:inline">{o.label}</span>}
           </button>
