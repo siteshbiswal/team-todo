@@ -30,6 +30,7 @@ function TaskEditor() {
   const [rows, setRows] = useState<Template[]>([])
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('')
+  const [info, setInfo] = useState('')
 
   useEffect(() => {
     supabase.from('task_templates').select('*').order('sl').then(({ data, error }) => {
@@ -43,6 +44,21 @@ function TaskEditor() {
     const { error } = await supabase.from('task_templates').update(patch).eq('id', id)
     if (error) setError(error.message)
     else setRows(rs => rs.map(r => (r.id === id ? { ...r, ...patch } : r)))
+  }
+
+  async function generate() {
+    setError(''); setInfo('')
+    const { data, error } = await supabase.rpc('admin_generate_today')
+    if (error) setError(error.message)
+    else setInfo(`${data} new task(s) created for today.`)
+  }
+
+  async function createToday(id: number) {
+    setError(''); setInfo('')
+    const { error } = await supabase.from('task_instances')
+      .insert({ template_id: id, due_date: new Date().toLocaleDateString('en-CA') })
+    if (error) setError(error.code === '23505' ? 'Already created for today.' : error.message)
+    else setInfo('Created for today.')
   }
 
   async function add() {
@@ -66,8 +82,10 @@ function TaskEditor() {
       <div className="mb-3 flex gap-2">
         <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Search task, team or owner"
           className="flex-1 rounded border p-1" />
+        <button onClick={generate} className="rounded bg-slate-100 px-3 text-sm">Generate today</button>
         <button onClick={add} className="rounded bg-slate-800 px-3 text-white">+ Task</button>
       </div>
+      {info && <p className="mb-2 text-green-700">{info}</p>}
       {error && <p className="mb-2 text-red-600">{error}</p>}
       <ul className="flex flex-col gap-3">
         {shown.map(r => (
@@ -112,6 +130,9 @@ function TaskEditor() {
             </div>
             <label className="mt-2 flex items-center gap-2 text-sm">
               <input type="checkbox" checked={r.active} onChange={e => save(r.id, { active: e.target.checked })} /> Active
+              {r.freq_type === 'per_event' && (
+                <button onClick={() => createToday(r.id)} className="ml-auto rounded bg-slate-100 px-2 py-0.5">Create for today</button>
+              )}
             </label>
           </li>
         ))}

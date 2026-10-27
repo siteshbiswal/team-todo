@@ -1,32 +1,17 @@
-# React + TypeScript + Vite
+# Team To-Do
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React + Supabase app replacing the team's recurring-task spreadsheet. Hosted on GitHub Pages.
 
-Currently, two official plugins are available:
+## Setup
+1. Copy `.env.example` to `.env` and fill `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`.
+2. `npm ci && npm run dev`
+3. In Supabase → Auth → URL Configuration, add the site URL (and `http://localhost:5173/team-todo/` for local dev).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Admin
+First user: sign in once, then in the Supabase SQL editor run
+`update profiles set role='admin', name='<name as in task sheet>' where id = '<user id>';`
+Admins can then edit tasks, owners, schedules and user roles in the Admin tab.
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## How tasks work
+`task_templates` hold the recurring definitions; a nightly job (06:00 IST) creates that day's `task_instances`.
+Members see tasks where their profile name appears in the 1st/2nd responsible field; heads see their team.

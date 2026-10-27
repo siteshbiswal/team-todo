@@ -7,7 +7,7 @@ export default function Login() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } })
+    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin + import.meta.env.BASE_URL } })
     setMsg(error ? error.message : 'Check your email for the sign-in link.')
   }
 
