@@ -12,16 +12,16 @@ const FREQS = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'per_event']
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export default function Admin() {
-  const [view, setView] = useState<'tasks' | 'users'>('tasks')
+  const [view, setView] = useState<'tasks' | 'users' | 'audit'>('tasks')
   return (
     <div>
       <div className="mb-3 flex gap-2">
-        {(['tasks', 'users'] as const).map(v => (
+        {(['tasks', 'users', 'audit'] as const).map(v => (
           <button key={v} onClick={() => setView(v)}
             className={`rounded px-3 py-1 capitalize ${view === v ? 'bg-slate-300' : 'bg-slate-100'}`}>{v}</button>
         ))}
       </div>
-      {view === 'tasks' ? <TaskEditor /> : <UserEditor />}
+      {view === 'tasks' ? <TaskEditor /> : view === 'users' ? <UserEditor /> : <AuditLog />}
     </div>
   )
 }
@@ -175,6 +175,43 @@ function UserEditor() {
             </select>
             <input defaultValue={p.team ?? ''} className="rounded border p-1" placeholder="Team (for heads)"
               onBlur={e => e.target.value !== (p.team ?? '') && save(p.id, { team: e.target.value || null })} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function AuditLog() {
+  const [rows, setRows] = useState<{ id: number; tbl: string; row_id: string | null; action: string; at: string; by_user: string | null; old_row: Record<string, unknown> | null; new_row: Record<string, unknown> | null }[]>([])
+  const [names, setNames] = useState<Record<string, string>>({})
+  const [tbl, setTbl] = useState('All')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    supabase.from('audit_log').select('*').order('at', { ascending: false }).limit(300).then(({ data, error }) => {
+      if (error) setError(error.message)
+      else setRows(data as never)
+    })
+    supabase.from('profiles').select('id,name').then(({ data }) => setNames(Object.fromEntries((data ?? []).map(p => [p.id, p.name]))))
+  }, [])
+
+  const tables = ['All', ...new Set(rows.map(r => r.tbl))]
+  const changed = (r: (typeof rows)[number]) => {
+    if (r.action !== 'UPDATE' || !r.old_row || !r.new_row) return r.action
+    return Object.keys(r.new_row).filter(k => !['updated_at', 'updated_by'].includes(k) && JSON.stringify(r.old_row![k]) !== JSON.stringify(r.new_row![k]))
+      .map(k => `${k}: ${String(r.old_row![k] ?? '')} → ${String(r.new_row![k] ?? '')}`).join('; ') || 'UPDATE'
+  }
+
+  return (
+    <div>
+      <select value={tbl} onChange={e => setTbl(e.target.value)} className="mb-3 rounded border p-1">{tables.map(t => <option key={t}>{t}</option>)}</select>
+      {error && <p className="text-red-600">{error}</p>}
+      <ul className="flex flex-col gap-1 text-sm">
+        {rows.filter(r => tbl === 'All' || r.tbl === tbl).map(r => (
+          <li key={r.id} className="rounded border p-2">
+            <span className="font-medium">{r.tbl}</span> #{r.row_id} · {r.action} · {r.by_user ? names[r.by_user] ?? 'user' : 'system'} · {new Date(r.at).toLocaleString('en-IN')}
+            <span className="block break-words text-xs text-slate-600">{changed(r)}</span>
           </li>
         ))}
       </ul>

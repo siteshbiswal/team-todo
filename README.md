@@ -1,17 +1,29 @@
 # Team To-Do
 
-React + Supabase app replacing the team's recurring-task spreadsheet. Hosted on GitHub Pages.
+React + Supabase app replacing the team's Excel workbook: recurring to-do list plus six trackers
+(Outstanding, Tenders, POs, Logistics, Service/Warranty, Sourcing). Hosted on GitHub Pages.
+
+## Features
+- **To-do:** 67 recurring tasks generated daily (IST) from templates; Today view, board with date range, bulk done, history.
+- **Trackers:** same columns and dropdowns as the workbook; calculated fields (balance, days overdue, margin, warranty end,
+  best vendor, margin %) are computed in the database. Inline editing, search, sort, status filter, Excel export, admin Excel import.
+- **Follow-ups:** everything with a next-follow-up date due today or earlier is listed on Today with a one-click "Done".
+- **Summary:** to-do completion by team/person/date range, outstanding ageing and top debtors, tender/PO status, late deliveries, open complaints.
+- **Access:** all signed-in staff can view every tracker; only the owning team (or heads/admins) can edit; vendor costs, rates and margins
+  are visible to heads/admins only; deletes and audit log are admin-only. Enforced by Postgres row-level security.
 
 ## Setup
 1. Copy `.env.example` to `.env` and fill `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`.
-2. `npm ci && npm run dev`
-3. In Supabase → Auth → URL Configuration, add the site URL (and `http://localhost:5173/team-todo/` for local dev).
+2. `npm ci && npm run dev` (open `http://localhost:5173/team-todo/`), `npm test` for unit tests.
+3. In Supabase → Auth → URL Configuration add the site URL (and the localhost URL for local dev).
 
 ## Admin
 First user: sign in once, then in the Supabase SQL editor run
 `update profiles set role='admin', name='<name as in task sheet>' where id = '<user id>';`
-Admins can then edit tasks, owners, schedules and user roles in the Admin tab.
+Then use the Admin tab to set each person's name, role and team. A member sees to-dos where their **name** appears in the
+1st/2nd responsible field, and can edit the trackers belonging to their **team**
+(Sales / Pre-Sales, Tendering, Logistics Follow-up, Sourcing, Accounts, Admin).
 
-## How tasks work
-`task_templates` hold the recurring definitions; a nightly job (06:00 IST) creates that day's `task_instances`.
-Members see tasks where their profile name appears in the 1st/2nd responsible field; heads see their team.
+## Importing the workbook
+Admin → open a tracker → **Import Excel** and pick the workbook. The sheet is found by its original name
+(`1 Outstanding` … `6 Sourcing`); example/placeholder rows are skipped. Import POs before Logistics and Service.
