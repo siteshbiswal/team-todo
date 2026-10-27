@@ -7,6 +7,7 @@ import ErrorBoundary from './ErrorBoundary'
 import { Link, useRoute } from './router'
 import { TRACKERS } from './trackers/configs'
 import { Skeleton } from './ui'
+import ThemeToggle from './ThemeToggle'
 import Login from './Login'
 import Tasks from './Tasks'
 
@@ -34,6 +35,23 @@ function Shell() {
     )
   }
 
+  if (!profile.active) {
+    return (
+      <main className="relative flex min-h-screen items-center justify-center p-4">
+        <ThemeToggle className="absolute right-4 top-4" />
+        <div className="card w-full max-w-sm p-6 text-center" role="status">
+          <span className="text-3xl" aria-hidden>⏳</span>
+          <h1 className="mt-2 text-lg font-semibold">Waiting for approval</h1>
+          <p className="mt-1 text-sm text-muted">You're signed in as <b className="text-ink">{profile.email ?? 'your account'}</b>. An admin needs to approve your account before you can see any data.</p>
+          <div className="mt-4 flex justify-center gap-2">
+            <button className="btn" onClick={() => location.reload()}>Check again</button>
+            <button className="btn btn-ghost" onClick={() => supabase.auth.signOut()}>Sign out</button>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
   const pill = (to: string, text: string) => (
     <Link key={to} to={to} className={`pill ${path === to ? 'pill-on' : ''}`}>{text}</Link>
   )
@@ -57,6 +75,7 @@ function Shell() {
               <span className="block font-medium">{profile.name}</span>
               <span className="block text-xs text-muted">{ROLE_LABEL[profile.role]}{profile.team ? ` · ${profile.team}` : ''}</span>
             </span>
+            <ThemeToggle />
             <button className="btn" onClick={() => supabase.auth.signOut()}>Sign out</button>
           </div>
         </div>

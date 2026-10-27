@@ -9,7 +9,7 @@ interface Template {
   freq_rule: { dow?: number; dom?: number; month?: number }
   res1: string | null; res2: string | null; final_res: string | null; remarks: string | null; active: boolean
 }
-interface Profile { id: string; name: string; role: 'member' | 'head' | 'admin'; team: string | null; email: string | null }
+interface Profile { id: string; name: string; role: 'member' | 'head' | 'admin'; team: string | null; email: string | null; active: boolean }
 
 const FREQS = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'per_event']
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -158,10 +158,15 @@ function UserEditor() {
         Ask colleagues to open the app and sign in once — they appear here. A member sees to-dos where their <b>name</b> appears in 1st/2nd responsible (e.g. “Sutar”)
         and can edit the trackers of their <b>team</b>. Heads and admins can edit every tracker and see costs and margins.
       </p>
+      {rows.some(p => !p.active) && (
+        <p className="mb-3 rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn">
+          {rows.filter(p => !p.active).length} account(s) waiting for approval. They can't see any data until you approve them.
+        </p>
+      )}
       {loading ? <Skeleton rows={3} /> : rows.length === 0 ? <EmptyState title="No users yet" /> : (
         <ul className="flex flex-col gap-2">
-          {rows.map(p => (
-            <li key={p.id} className="card grid gap-2 p-3 sm:grid-cols-[1.2fr_1fr_1fr_1.2fr] sm:items-end">
+          {[...rows].sort((x, y) => Number(x.active) - Number(y.active)).map(p => (
+            <li key={p.id} className={`card grid gap-2 p-3 sm:grid-cols-[1.2fr_1fr_1fr_1.2fr_auto] sm:items-end ${p.active ? '' : 'border-warn/60'}`}>
               <label className="text-xs font-medium text-muted">Name (as in task sheet)
                 <input defaultValue={p.name} className="field mt-0.5 w-full" onBlur={e => e.target.value && e.target.value !== p.name && save(p.id, { name: e.target.value })} />
               </label>
@@ -177,6 +182,9 @@ function UserEditor() {
                 </select>
               </label>
               <p className="truncate text-sm text-muted" title={p.email ?? ''}>{p.email ?? ''}</p>
+              {p.active
+                ? <button className="btn btn-ghost text-xs" onClick={() => confirm(`Revoke access for ${p.name}?`) && save(p.id, { active: false })}>Revoke</button>
+                : <button className="btn btn-primary" onClick={() => save(p.id, { active: true })}>Approve</button>}
             </li>
           ))}
         </ul>

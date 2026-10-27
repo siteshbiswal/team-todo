@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
+import ThemeToggle from './ThemeToggle'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -24,7 +25,8 @@ export default function Login() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
+    <main className="relative flex min-h-screen items-center justify-center p-4">
+      <ThemeToggle className="absolute right-4 top-4" />
       <div className="card w-full max-w-sm p-6">
         <div className="mb-5 flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand text-lg text-brand-ink" aria-hidden>✓</span>
@@ -46,7 +48,7 @@ export default function Login() {
             </label>
             <button className="btn btn-primary" disabled={busy}>{busy ? 'Sending…' : 'Email me a sign-in link'}</button>
             {error && <p className="text-sm text-bad" role="alert">{error}</p>}
-            <p className="text-xs text-muted">No password needed. Only people added by an admin can see data.</p>
+            <p className="text-xs text-muted">No password needed. New accounts must be approved by an admin before they can see any data.</p>
           </form>
         )}
       </div>
