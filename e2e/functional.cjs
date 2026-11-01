@@ -77,6 +77,22 @@ module.exports = async browser => {
   ok(a.errors.length === 0, `no console/page errors (${a.errors.join(' | ').slice(0, 120)})`)
   await a.context.close()
 
+  section('Functional: dialogs open full-height, over the whole page')
+  for (const [label, opts] of [['desktop', {}], ['phone', require('./harness.cjs').devices['iPhone 13']]]) {
+    a = await openApp(browser, opts)
+    await a.page.getByRole('button', { name: /Set your name/ }).click(); await a.page.waitForTimeout(250)
+    let box = await a.page.getByRole('dialog').boundingBox(), vp = a.page.viewportSize()
+    ok(box && box.height >= vp.height - 1 && box.y <= 1 && box.x + box.width <= vp.width + 1, `${label}: "Your name" dialog fills the screen height (${Math.round(box?.height)}px of ${vp.height}px)`)
+    ok(await a.page.getByLabel('Name as it appears in the task sheet').isVisible() && await a.page.getByRole('button', { name: 'Save' }).isVisible(), `${label}: its field and Save button are visible`)
+    ok(await a.page.evaluate(() => { const el = document.querySelector('[role=dialog]'); const r = el.getBoundingClientRect(); const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return el.contains(top) }), `${label}: nothing (e.g. the header) is drawn on top of it`)
+    await a.page.keyboard.press('Escape')
+    await a.page.goto(BASE + '#/outstanding'); await a.page.waitForSelector('h1')
+    await (label === 'phone' ? a.page.locator('ul.md\\:hidden li button').first() : a.page.getByLabel('Open details').first()).click(); await a.page.waitForTimeout(250)
+    box = await a.page.getByRole('dialog').boundingBox()
+    ok(box && box.height >= vp.height - 1, `${label}: row detail panel fills the screen height too`)
+    await a.context.close()
+  }
+
   section('Functional: your name (optional, no account)')
   a = await openApp(browser)
   ok(await a.page.getByText(/set your name/i).count() >= 1, 'Today invites you to set a name')

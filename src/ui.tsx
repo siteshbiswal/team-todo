@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { statusTone } from './lib'
 
 export const Badge = ({ value, tone }: { value: unknown; tone?: 'good' | 'warn' | 'bad' | 'info' | 'neutral' }) =>
@@ -53,8 +54,10 @@ export function Drawer({ title, onClose, children, footer }: { title: ReactNode;
     document.body.style.overflow = 'hidden'
     return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev; opener?.focus() } // give focus back
   }, [onClose])
-  return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-black/40" onMouseDown={e => e.target === e.currentTarget && onClose()}>
+  // Rendered at the top of the page (not inside whatever opened it): a parent with backdrop-filter, like the sticky header,
+  // would otherwise become the "screen" for position:fixed and squash the dialog into itself.
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onMouseDown={e => e.target === e.currentTarget && onClose()}>
       <aside ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId} className="flex h-full w-full max-w-xl flex-col bg-card shadow-xl">
         <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
           <h2 id={titleId} className="min-w-0 truncate font-semibold">{title}</h2>
@@ -63,7 +66,8 @@ export function Drawer({ title, onClose, children, footer }: { title: ReactNode;
         <div className="flex-1 overflow-y-auto px-4 py-3">{children}</div>
         {footer && <div className="border-t border-line px-4 py-3">{footer}</div>}
       </aside>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
