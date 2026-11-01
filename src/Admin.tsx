@@ -148,12 +148,39 @@ function TaskEditor() {
 
 function Sharing() {
   const toast = useToast()
+  const [mode, setMode] = useState<'open' | 'link' | null>(null)
   const [link, setLink] = useState(shareLink)
   const [busy, setBusy] = useState(false)
+  const address = `${location.origin}${import.meta.env.BASE_URL}`
 
-  async function copy() {
-    try { await navigator.clipboard.writeText(link); toast('Link copied — paste it into WhatsApp, email or chat') }
-    catch { toast('Copy failed — select the link and copy it manually', 'error') }
+  useEffect(() => {
+    supabase.rpc('access_mode').then(({ data }) => setMode(data === 'link' ? 'link' : 'open'))
+  }, [])
+
+  async function copy(text: string) {
+    try { await navigator.clipboard.writeText(text); toast('Copied — paste it into WhatsApp, email or chat') }
+    catch { toast('Copy failed — select the text and copy it manually', 'error') }
+  }
+
+  async function makePrivate() {
+    if (!confirm('Make the app private? Only people with a NEW link can open it, so you must send that link to your team. The plain address will stop working.')) return
+    setBusy(true)
+    const k = newKey()
+    const { error } = await supabase.rpc('set_open_access', { p_open: false, new_key: k })
+    setBusy(false)
+    if (error) return toast(error.message, 'error')
+    setKey(k); setLink(shareLink()); setMode('link')
+    toast('Now private. Send the new link to your team.')
+  }
+
+  async function makeOpen() {
+    if (!confirm('Open the app to anyone? Anyone who finds the plain address will be able to read, edit and delete all data.')) return
+    setBusy(true)
+    const { error } = await supabase.rpc('set_open_access', { p_open: true })
+    setBusy(false)
+    if (error) return toast(error.message, 'error')
+    setMode('open')
+    toast('The plain address now opens the app for everyone.')
   }
 
   async function rotate() {
@@ -163,27 +190,51 @@ function Sharing() {
     const { error } = await supabase.rpc('rotate_team_key', { new_key: k })
     setBusy(false)
     if (error) return toast(error.message, 'error')
-    setKey(k) // this device switches to the new key
-    setLink(shareLink())
+    setKey(k); setLink(shareLink())
     toast('New link created. The old link no longer works.')
   }
 
+  if (!mode) return <Skeleton rows={2} />
+
   return (
     <div className="flex max-w-2xl flex-col gap-4">
-      <section className="card p-4">
-        <h2 className="font-semibold">Share this app</h2>
-        <p className="mt-1 text-sm text-muted">Anyone who opens this link can use the whole app in their browser — no sign-in. Share it only with your team.</p>
-        <div className="mt-3 flex gap-2">
-          <input readOnly value={link} aria-label="Team link" onFocus={e => e.currentTarget.select()} className="field min-w-0 flex-1 font-mono text-xs" />
-          <button className="btn btn-primary" onClick={copy}>Copy</button>
-        </div>
-        <p className="mt-2 text-xs text-muted">The link contains a secret key. Without it the web address shows nothing, so it’s safe to keep the code public.</p>
-      </section>
-      <section className="card p-4">
-        <h2 className="font-semibold">If the link gets out</h2>
-        <p className="mt-1 text-sm text-muted">Create a new link to cut off everyone who has the old one. People will see “This link no longer works” until you send them the new link.</p>
-        <button className="btn mt-3" onClick={rotate} disabled={busy}>{busy ? 'Working…' : 'Create a new link'}</button>
-      </section>
+      {mode === 'open' ? (
+        <>
+          <section className="card p-4">
+            <h2 className="flex items-center gap-2 font-semibold">Share this app <span className="badge tone-warn">Open to anyone</span></h2>
+            <p className="mt-1 text-sm text-muted">Anyone who opens this address can use the whole app in their browser — no code, no sign-in.</p>
+            <div className="mt-3 flex gap-2">
+              <input readOnly value={address} aria-label="App address" onFocus={e => e.currentTarget.select()} className="field min-w-0 flex-1 font-mono text-xs" />
+              <button className="btn btn-primary" onClick={() => copy(address)}>Copy</button>
+            </div>
+          </section>
+          <section className="card border-warn/50 p-4">
+            <h2 className="font-semibold">Good to know</h2>
+            <p className="mt-1 text-sm text-muted">Because the app is open, anyone who finds or is sent the address can also change or delete data — payments, tenders, costs and margins included. Download an Excel copy of the trackers now and then as a backup. “History” shows what changed and by whom.</p>
+            <button className="btn mt-3" onClick={makePrivate} disabled={busy}>{busy ? 'Working…' : 'Make it private (link only)'}</button>
+          </section>
+        </>
+      ) : (
+        <>
+          <section className="card p-4">
+            <h2 className="flex items-center gap-2 font-semibold">Share this app <span className="badge tone-good">Private link</span></h2>
+            <p className="mt-1 text-sm text-muted">Only people with this link can open the app. The plain address shows nothing.</p>
+            <div className="mt-3 flex gap-2">
+              <input readOnly value={link} aria-label="Team link" onFocus={e => e.currentTarget.select()} className="field min-w-0 flex-1 font-mono text-xs" />
+              <button className="btn btn-primary" onClick={() => copy(link)}>Copy</button>
+            </div>
+            <p className="mt-2 text-xs text-muted">The link contains a secret key, so treat it like a password.</p>
+          </section>
+          <section className="card p-4">
+            <h2 className="font-semibold">Change who can open it</h2>
+            <p className="mt-1 text-sm text-muted">If the link gets out, create a new one — the old link stops working at once. Or open the app to anyone with the plain address.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button className="btn" onClick={rotate} disabled={busy}>Create a new link</button>
+              <button className="btn" onClick={makeOpen} disabled={busy}>Open to anyone</button>
+            </div>
+          </section>
+        </>
+      )}
     </div>
   )
 }

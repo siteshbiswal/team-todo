@@ -46,11 +46,12 @@ function fixtures() {
 
 /**
  * Opens the app the way a team member does after opening the shared link: the device already holds the key.
- * Options: data overrides, key (null = first visit with no link), access (true | false | 'offline' for check_access),
+ * Options: data overrides, key (null = first visit with no link), access (true | false | 'keyed' | 'offline' for check_access),
+ * mode ('open' | 'link' for the Manage → Sharing screen),
  * name (saved display name), query ('?k=…'), hash, viewport/device/colorScheme/timezoneId,
  * fail(req, table) -> { status, body?, code? } or { abort: true } to inject API errors.
  */
-async function openApp(browser, { data = {}, key = KEY, access = true, name, fail, hash = '', query = '', ...ctxOpts } = {}) {
+async function openApp(browser, { data = {}, key = KEY, access = true, mode = 'open', name, fail, hash = '', query = '', ...ctxOpts } = {}) {
   const store = { ...fixtures(), ...data }
   const context = await browser.newContext({ viewport: { width: 1360, height: 860 }, acceptDownloads: true, ...ctxOpts })
   const page = await context.newPage()
@@ -66,14 +67,19 @@ async function openApp(browser, { data = {}, key = KEY, access = true, name, fai
   await page.route('**/rest/v1/**', async r => {
     const req = r.request(), u = new URL(req.url()), table = u.pathname.split('/').pop()
     requests.push(`${req.method()} ${table}${u.search}`); sent.push(req.headers())
-    if (table === 'check_access') { sent.push(req.headers()); return r.fulfill({ json: access === 'offline' ? undefined : access === true, status: access === 'offline' ? 500 : 200 }) }
+    if (table === 'check_access') {
+      sent.push(req.headers())
+      const granted = access === 'keyed' ? req.headers()['x-team-key'] === KEY : access === true // 'keyed' = a private link: only the right key gets in
+      return r.fulfill({ json: access === 'offline' ? undefined : granted, status: access === 'offline' ? 500 : 200 })
+    }
+    if (table === 'access_mode') return r.fulfill({ json: mode })
     const injected = fail?.(req, table)
     if (injected?.abort) return r.abort('connectionfailed') // simulates the network dropping
     if (injected) return r.fulfill({ status: injected.status, json: injected.body ?? { message: 'injected failure', code: injected.code ?? 'XX000' } })
     if (req.method() !== 'GET' && req.method() !== 'HEAD') {
       writes.push({ method: req.method(), table, body: req.postData() ?? '' })
       if (table === 'generate_today') return r.fulfill({ json: 3 })
-      if (table === 'rotate_team_key') return r.fulfill({ status: 204, body: '' })
+      if (table === 'rotate_team_key' || table === 'set_open_access') return r.fulfill({ status: 204, body: '' })
       return r.fulfill({ status: req.method() === 'POST' ? 201 : 204, headers: { 'content-type': 'application/json' }, body: req.method() === 'POST' ? '{"id":99}' : '' })
     }
     let rows = store[table] ?? []

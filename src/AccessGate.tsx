@@ -15,7 +15,7 @@ export default function AccessGate({ reason, onRetry }: { reason: 'missing' | 'i
   }
 
   const copy = {
-    missing: ['Private team app', 'Open the full link you were given — it ends with ?k=… — or paste it below.'],
+    missing: ['Private team app', 'This app is set to private. Open the full link you were given — it ends with ?k=… — or paste it below.'],
     invalid: ['This link no longer works', 'It may have been replaced with a new one. Ask for the latest link and paste it below.'],
     offline: ['Can’t reach the server', 'Check your internet connection and try again.'],
   }[reason]

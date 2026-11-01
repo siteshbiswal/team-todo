@@ -66,10 +66,9 @@ export default function App() {
   const [access, setAccess] = useState<Access>('checking')
 
   const check = useCallback(async () => {
-    if (!getKey()) return setAccess('missing')
     setAccess('checking')
-    const { data, error } = await supabase.rpc('check_access')
-    setAccess(error ? 'offline' : data === true ? 'ok' : 'invalid')
+    const { data, error } = await supabase.rpc('check_access') // true in open mode, or when this device holds a valid key
+    setAccess(error ? 'offline' : data === true ? 'ok' : getKey() ? 'invalid' : 'missing')
   }, [])
 
   useEffect(() => { check() }, [check])
