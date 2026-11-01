@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
-import { useProfile } from './profile'
 import { addDays, agingBuckets, countBy, inr, summarizeTasks, today, topDebtors } from './lib'
 import { trackerLink } from './router'
 import { PO_STATUSES } from './trackers/configs'
@@ -9,7 +8,6 @@ import { StatTile } from './ui'
 type R = Record<string, any>
 
 export default function Summary() {
-  const { profile } = useProfile()
   const t = today()
   const [from, setFrom] = useState(t)
   const [to, setTo] = useState(t)
@@ -20,7 +18,7 @@ export default function Summary() {
   const [pos, setPos] = useState<R[]>([])
   const [svc, setSvc] = useState<R[]>([])
   const [src, setSrc] = useState<R[]>([])
-  const seeMargin = profile?.role !== 'member'
+  const seeMargin = true
 
   useEffect(() => {
     supabase.from('task_instances').select('status,task_templates(team,res1,res2)').gte('due_date', from).lte('due_date', to).limit(5000)

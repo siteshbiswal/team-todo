@@ -2,30 +2,29 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
 import { useToast } from './toast'
 import { today } from './lib'
-import { useProfile } from './profile'
 import { EmptyState, Segmented, Skeleton } from './ui'
+import { newKey, setKey, shareLink } from './access'
 
 interface Template {
   id: number; team: string; title: string; freq_text: string | null; freq_type: string
   freq_rule: { dow?: number; dom?: number; month?: number }
   res1: string | null; res2: string | null; final_res: string | null; remarks: string | null; active: boolean
 }
-interface Profile { id: string; name: string; role: 'member' | 'admin'; team: string | null; email: string | null; active: boolean }
 
 const FREQS = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'per_event']
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const TEAMS = ['Sales / Pre-Sales', 'Tendering', 'Logistics Follow-up', 'Sourcing', 'Accounts', 'Admin']
-const VIEWS = ['Tasks', 'Users', 'Audit log'] as const
+const VIEWS = ['Tasks', 'Sharing', 'History'] as const
 
 export default function Admin() {
   const [view, setView] = useState<(typeof VIEWS)[number]>('Tasks')
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold">Admin</h1>
-        <Segmented label="Admin section" value={view} options={VIEWS} onChange={setView} />
+        <h1 className="text-xl font-semibold">Manage</h1>
+        <Segmented label="Manage section" value={view} options={VIEWS} onChange={setView} />
       </div>
-      {view === 'Tasks' ? <TaskEditor /> : view === 'Users' ? <UserEditor /> : <AuditLog />}
+      {view === 'Tasks' ? <TaskEditor /> : view === 'Sharing' ? <Sharing /> : <AuditLog />}
     </div>
   )
 }
@@ -51,7 +50,7 @@ function TaskEditor() {
   }
 
   async function generate() {
-    const { data, error } = await supabase.rpc('admin_generate_today')
+    const { data, error } = await supabase.rpc('generate_today')
     if (error) toast(error.message, 'error')
     else toast(`${data} new task(s) created for today`)
   }
@@ -147,75 +146,53 @@ function TaskEditor() {
   )
 }
 
-function UserEditor() {
+function Sharing() {
   const toast = useToast()
-  const { profile: me } = useProfile()
-  const [rows, setRows] = useState<Profile[]>([])
-  const [loading, setLoading] = useState(true)
+  const [link, setLink] = useState(shareLink)
+  const [busy, setBusy] = useState(false)
 
-  useEffect(() => {
-    supabase.from('profiles').select('*').order('name').then(({ data, error }) => {
-      if (error) toast(error.message, 'error')
-      else setRows(data as Profile[])
-      setLoading(false)
-    })
-  }, [toast])
+  async function copy() {
+    try { await navigator.clipboard.writeText(link); toast('Link copied — paste it into WhatsApp, email or chat') }
+    catch { toast('Copy failed — select the link and copy it manually', 'error') }
+  }
 
-  async function save(id: string, patch: Partial<Profile>) {
-    const { error } = await supabase.from('profiles').update(patch).eq('id', id)
-    if (error) toast(/at least one active admin/.test(error.message) ? 'There must always be at least one active admin.' : error.message, 'error')
-    else setRows(rs => rs.map(r => (r.id === id ? { ...r, ...patch } : r)))
+  async function rotate() {
+    if (!confirm('Create a new link? The current link stops working for EVERYONE straight away — you must send the new link to your team.')) return
+    setBusy(true)
+    const k = newKey()
+    const { error } = await supabase.rpc('rotate_team_key', { new_key: k })
+    setBusy(false)
+    if (error) return toast(error.message, 'error')
+    setKey(k) // this device switches to the new key
+    setLink(shareLink())
+    toast('New link created. The old link no longer works.')
   }
 
   return (
-    <div>
-      <p className="mb-3 rounded-lg bg-info-soft px-3 py-2 text-sm text-info">
-        Ask colleagues to open the app and sign in once — they appear here. A member sees to-dos where their <b>name</b> appears in 1st/2nd responsible (e.g. “Sutar”)
-        and can edit the trackers of their <b>team</b>. Admins see every to-do, edit every tracker, see costs and margins, and manage users and tasks.
-      </p>
-      {rows.some(p => !p.active) && (
-        <p className="mb-3 rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn">
-          {rows.filter(p => !p.active).length} account(s) waiting for approval. They can't see any data until you approve them.
-        </p>
-      )}
-      {loading ? <Skeleton rows={3} /> : rows.length === 0 ? <EmptyState title="No users yet" /> : (
-        <ul className="flex flex-col gap-2">
-          {[...rows].sort((x, y) => Number(x.active) - Number(y.active)).map(p => (
-            <li key={p.id} className={`card grid gap-2 p-3 sm:grid-cols-[1.2fr_1fr_1fr_1.2fr_auto] sm:items-end ${p.active ? '' : 'border-warn/60'}`}>
-              <label className="text-xs font-medium text-muted">Name (as in task sheet)
-                <input defaultValue={p.name} className="field mt-0.5 w-full" onBlur={e => e.target.value && e.target.value !== p.name && save(p.id, { name: e.target.value })} />
-              </label>
-              <label className="text-xs font-medium text-muted">Role
-                <select value={p.role} disabled={p.id === me?.id} title={p.id === me?.id ? "You can't change your own role" : undefined}
-                  className="field mt-0.5 block w-full" onChange={e => save(p.id, { role: e.target.value as Profile['role'] })}>
-                  {['member', 'admin'].map(r => <option key={r}>{r}</option>)}
-                </select>
-              </label>
-              <label className="text-xs font-medium text-muted">Team
-                <select value={p.team ?? ''} className="field mt-0.5 block w-full" onChange={e => save(p.id, { team: e.target.value || null })}>
-                  <option value="">—</option>
-                  {TEAMS.map(t => <option key={t}>{t}</option>)}
-                </select>
-              </label>
-              <p className="truncate text-sm text-muted" title={p.email ?? ''}>{p.email ?? ''}</p>
-              {p.active
-                ? <button className="btn btn-ghost text-xs" disabled={p.id === me?.id} title={p.id === me?.id ? "You can't revoke yourself" : undefined}
-                    onClick={() => confirm(`Revoke access for ${p.name}?`) && save(p.id, { active: false })}>Revoke</button>
-                : <button className="btn btn-primary" onClick={() => save(p.id, { active: true })}>Approve</button>}
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="flex max-w-2xl flex-col gap-4">
+      <section className="card p-4">
+        <h2 className="font-semibold">Share this app</h2>
+        <p className="mt-1 text-sm text-muted">Anyone who opens this link can use the whole app in their browser — no sign-in. Share it only with your team.</p>
+        <div className="mt-3 flex gap-2">
+          <input readOnly value={link} aria-label="Team link" onFocus={e => e.currentTarget.select()} className="field min-w-0 flex-1 font-mono text-xs" />
+          <button className="btn btn-primary" onClick={copy}>Copy</button>
+        </div>
+        <p className="mt-2 text-xs text-muted">The link contains a secret key. Without it the web address shows nothing, so it’s safe to keep the code public.</p>
+      </section>
+      <section className="card p-4">
+        <h2 className="font-semibold">If the link gets out</h2>
+        <p className="mt-1 text-sm text-muted">Create a new link to cut off everyone who has the old one. People will see “This link no longer works” until you send them the new link.</p>
+        <button className="btn mt-3" onClick={rotate} disabled={busy}>{busy ? 'Working…' : 'Create a new link'}</button>
+      </section>
     </div>
   )
 }
 
-interface Audit { id: number; tbl: string; row_id: string | null; action: string; at: string; by_user: string | null; old_row: Record<string, unknown> | null; new_row: Record<string, unknown> | null }
+interface Audit { id: number; tbl: string; row_id: string | null; action: string; at: string; by_name: string | null; old_row: Record<string, unknown> | null; new_row: Record<string, unknown> | null }
 
 function AuditLog() {
   const toast = useToast()
   const [rows, setRows] = useState<Audit[]>([])
-  const [names, setNames] = useState<Record<string, string>>({})
   const [tbl, setTbl] = useState('All')
   const [loading, setLoading] = useState(true)
 
@@ -225,7 +202,6 @@ function AuditLog() {
       else setRows(data as Audit[])
       setLoading(false)
     })
-    supabase.from('profiles').select('id,name').then(({ data }) => setNames(Object.fromEntries((data ?? []).map(p => [p.id, p.name]))))
   }, [toast])
 
   const tables = ['All', ...new Set(rows.map(r => r.tbl))]
@@ -238,11 +214,11 @@ function AuditLog() {
   return (
     <div>
       <select value={tbl} onChange={e => setTbl(e.target.value)} className="field mb-3" aria-label="Table">{tables.map(t => <option key={t}>{t}</option>)}</select>
-      {loading ? <Skeleton /> : rows.length === 0 ? <EmptyState title="No changes recorded yet" hint="Every edit to trackers, tasks and users is logged here." /> : (
+      {loading ? <Skeleton /> : rows.length === 0 ? <EmptyState title="No changes recorded yet" hint="Every change to trackers and tasks is logged here, with the name of who made it." /> : (
         <ul className="flex flex-col gap-1.5 text-sm">
           {rows.filter(r => tbl === 'All' || r.tbl === tbl).map(r => (
             <li key={r.id} className="card px-3 py-2">
-              <span className="font-medium">{r.tbl}</span> <span className="text-muted">#{r.row_id} · {r.by_user ? names[r.by_user] ?? 'user' : 'system'} · {new Date(r.at).toLocaleString('en-IN')}</span>
+              <span className="font-medium">{r.tbl}</span> <span className="text-muted">#{r.row_id} · {r.by_name ?? 'system'} · {new Date(r.at).toLocaleString('en-IN')}</span>
               <span className="block break-words text-xs text-muted">{changed(r)}</span>
             </li>
           ))}

@@ -56,12 +56,12 @@ export function Drawer({ title, onClose, children, footer }: { title: ReactNode;
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-black/40" onMouseDown={e => e.target === e.currentTarget && onClose()}>
       <aside ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId} className="flex h-full w-full max-w-xl flex-col bg-card shadow-xl">
-        <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+        <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
           <h2 id={titleId} className="min-w-0 truncate font-semibold">{title}</h2>
           <button className="btn btn-ghost" onClick={onClose} aria-label="Close">✕</button>
-        </header>
+        </div>
         <div className="flex-1 overflow-y-auto px-4 py-3">{children}</div>
-        {footer && <footer className="border-t border-line px-4 py-3">{footer}</footer>}
+        {footer && <div className="border-t border-line px-4 py-3">{footer}</div>}
       </aside>
     </div>
   )

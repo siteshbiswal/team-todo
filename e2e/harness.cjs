@@ -15,12 +15,7 @@ const ok = (cond, msg) => {
 }
 const section = name => console.log(`\n# ${name}`)
 
-const PROFILES = {
-  admin: { id: 'u1', name: 'Sitesh Biswal', role: 'admin', team: null, active: true, email: 'admin@co.com' },
-  sales: { id: 'u1', name: 'Sagarika', role: 'member', team: 'Sales / Pre-Sales', active: true, email: 's@co.com' },
-  logistics: { id: 'u1', name: 'Hari', role: 'member', team: 'Logistics Follow-up', active: true, email: 'h@co.com' },
-  pending: { id: 'u1', name: 'newbie', role: 'member', team: null, active: false, email: 'new@co.com' },
-}
+const KEY = 'test-team-key-0123456789abcdef'
 
 const task = (id, over = {}) => ({
   id, due_date: today, status: 'Pending', remarks: null, done_at: null,
@@ -29,7 +24,6 @@ const task = (id, over = {}) => ({
 
 function fixtures() {
   return {
-    profiles: [PROFILES.admin],
     outstanding_v: [
       { id: 1, po_no: 'PO-1', client: 'GP Kendrapada', dept: 'MC', firm: 'LTN', invoice_amt: 500000, received: 200000, balance: 300000, days_overdue: 55, aging: '31-60', next_followup: today, invoice_date: '2026-09-01' },
       { id: 2, po_no: 'PO-2', client: 'Zilla Parishad', firm: 'MAC', invoice_amt: 100000, received: 0, balance: 100000, days_overdue: 95, aging: '90+', next_followup: null },
@@ -51,32 +45,35 @@ function fixtures() {
 }
 
 /**
- * Opens the app signed in as `profile`. Options: data overrides, viewport/device/colorScheme/timezoneId,
- * fail(req) -> { status, body? } to inject API errors, signedIn=false for the login page.
+ * Opens the app the way a team member does after opening the shared link: the device already holds the key.
+ * Options: data overrides, key (null = first visit with no link), access (true | false | 'offline' for check_access),
+ * name (saved display name), query ('?k=…'), hash, viewport/device/colorScheme/timezoneId,
+ * fail(req, table) -> { status, body?, code? } or { abort: true } to inject API errors.
  */
-async function openApp(browser, { profile = 'admin', data = {}, signedIn = true, fail, hash = '', ...ctxOpts } = {}) {
+async function openApp(browser, { data = {}, key = KEY, access = true, name, fail, hash = '', query = '', ...ctxOpts } = {}) {
   const store = { ...fixtures(), ...data }
-  store.profiles = data.profiles ?? [PROFILES[profile]]
   const context = await browser.newContext({ viewport: { width: 1360, height: 860 }, acceptDownloads: true, ...ctxOpts })
   const page = await context.newPage()
-  const writes = [], errors = [], requests = []
+  const writes = [], errors = [], requests = [], sent = [] // sent: request headers, to prove the key goes out with every call
   page.on('pageerror', e => errors.push(`PAGEERROR ${e.message}`))
   page.on('console', m => m.type() === 'error' && !/Failed to load resource/.test(m.text()) && errors.push(m.text()))
-  if (signedIn) {
-    await page.addInitScript(ref => localStorage.setItem(`sb-${ref}-auth-token`, JSON.stringify({
-      access_token: 'a.b.c', refresh_token: 'r', token_type: 'bearer', expires_in: 3600,
-      expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: 'u1', email: 'x@y.z', aud: 'authenticated' },
-    })), REF)
-  }
-  await page.route('**/auth/v1/**', r => r.fulfill({ json: { id: 'u1', email: 'x@y.z', aud: 'authenticated' } }))
+  // the device already holds a key (as after opening the shared link once); key=null simulates a first visit with no link
+  await page.addInitScript(([k, n]) => {
+    if (k && !sessionStorage.getItem('__seeded')) localStorage.setItem('teamKey', k)
+    if (n && !sessionStorage.getItem('__seeded')) localStorage.setItem('userName', n)
+    sessionStorage.setItem('__seeded', '1')
+  }, [key, name])
   await page.route('**/rest/v1/**', async r => {
     const req = r.request(), u = new URL(req.url()), table = u.pathname.split('/').pop()
-    requests.push(`${req.method()} ${table}${u.search}`)
+    requests.push(`${req.method()} ${table}${u.search}`); sent.push(req.headers())
+    if (table === 'check_access') { sent.push(req.headers()); return r.fulfill({ json: access === 'offline' ? undefined : access === true, status: access === 'offline' ? 500 : 200 }) }
     const injected = fail?.(req, table)
     if (injected?.abort) return r.abort('connectionfailed') // simulates the network dropping
     if (injected) return r.fulfill({ status: injected.status, json: injected.body ?? { message: 'injected failure', code: injected.code ?? 'XX000' } })
     if (req.method() !== 'GET' && req.method() !== 'HEAD') {
       writes.push({ method: req.method(), table, body: req.postData() ?? '' })
+      if (table === 'generate_today') return r.fulfill({ json: 3 })
+      if (table === 'rotate_team_key') return r.fulfill({ status: 204, body: '' })
       return r.fulfill({ status: req.method() === 'POST' ? 201 : 204, headers: { 'content-type': 'application/json' }, body: req.method() === 'POST' ? '{"id":99}' : '' })
     }
     let rows = store[table] ?? []
@@ -86,11 +83,11 @@ async function openApp(browser, { profile = 'admin', data = {}, signedIn = true,
     if (req.method() === 'HEAD') return r.fulfill({ status: 200, headers: { 'content-range': `0-0/${rows.length}` }, body: '' })
     r.fulfill({ json: rows, headers: { 'content-range': `0-${Math.max(rows.length - 1, 0)}/${rows.length}` } })
   })
-  await page.goto(BASE + hash, { waitUntil: 'networkidle' })
-  return { page, context, writes, errors, requests, store }
+  await page.goto(BASE + query + hash, { waitUntil: 'networkidle' })
+  return { page, context, writes, errors, requests, sent, store }
 }
 
 /** true if the locator becomes visible within `ms` (use instead of an instant count() right after navigation) */
 const appears = (loc, ms = 4000) => loc.first().waitFor({ state: 'visible', timeout: ms }).then(() => true, () => false)
 const overflowX = page => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)
-module.exports = { appears, chromium, devices, BASE, PORT, REF, today, ok, section, results, PROFILES, fixtures, task, openApp, overflowX }
+module.exports = { appears, chromium, devices, BASE, PORT, REF, KEY, today, ok, section, results, fixtures, task, openApp, overflowX }

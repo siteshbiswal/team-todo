@@ -18,8 +18,8 @@ const report = (label, v) => {
 module.exports = async browser => {
   for (const scheme of ['light', 'dark']) {
     section(`Accessibility (axe, WCAG 2.1 AA) — ${scheme}`)
-    let a = await openApp(browser, { signedIn: false, colorScheme: scheme })
-    report(`${scheme} login`, await audit(a.page)); await a.context.close()
+    let a = await openApp(browser, { key: null, colorScheme: scheme })
+    report(`${scheme} access screen`, await audit(a.page)); await a.context.close()
 
     for (const [name, hash] of [['today', ''], ['board', '#/board'], ['summary', '#/summary'], ['outstanding table', '#/outstanding'], ['tenders table', '#/tenders'], ['admin tasks', '#/admin']]) {
       a = await openApp(browser, { colorScheme: scheme, hash, data: { task_templates: [{ id: 1, team: 'Accounts', title: 'Sample', freq_type: 'daily', freq_rule: {}, active: true, sl: 1 }] } })
@@ -30,8 +30,12 @@ module.exports = async browser => {
     await a.page.getByLabel('Open details').first().click(); await a.page.waitForTimeout(250)
     report(`${scheme} detail drawer`, await audit(a.page)); await a.context.close()
 
-    a = await openApp(browser, { colorScheme: scheme, profile: 'pending' })
-    report(`${scheme} waiting-for-approval`, await audit(a.page)); await a.context.close()
+    a = await openApp(browser, { colorScheme: scheme, hash: '#/admin' })
+    await a.page.getByRole('button', { name: 'Sharing' }).click(); await a.page.waitForTimeout(150)
+    report(`${scheme} manage → sharing`, await audit(a.page)); await a.context.close()
+    a = await openApp(browser, { colorScheme: scheme })
+    await a.page.getByRole('button', { name: /Set your name/ }).click(); await a.page.waitForTimeout(200)
+    report(`${scheme} name dialog`, await audit(a.page)); await a.context.close()
 
     a = await openApp(browser, { ...devices['iPhone 13'], colorScheme: scheme, hash: '#/outstanding' })
     report(`${scheme} phone cards`, await audit(a.page)); await a.context.close()

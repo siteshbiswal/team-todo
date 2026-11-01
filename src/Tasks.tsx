@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase, type Status } from './supabase'
-import { useProfile } from './profile'
+import { useIdentity } from './identity'
 import { useToast } from './toast'
 import { addDays, today, trackerForTask } from './lib'
 import { trackerById } from './trackers/configs'
@@ -11,7 +11,7 @@ import Followups from './Followups'
 const STATUSES = ['Pending', 'In Progress', 'Done'] as const
 
 interface Item {
-  id: number; due_date: string; status: Status; remarks: string | null; done_at: string | null
+  id: number; due_date: string; status: Status; remarks: string | null; done_at: string | null; done_by_name?: string | null
   task_templates: { team: string; title: string; freq_text: string; res1: string | null; res2: string | null; final_res: string | null }
 }
 
@@ -19,7 +19,7 @@ const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Good 
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(a) - Date.parse(b)) / 864e5)
 
 export default function Tasks({ mode }: { mode: 'today' | 'board' }) {
-  const { profile } = useProfile()
+  const { name: myName } = useIdentity()
   const toast = useToast()
   const t = today()
   const [rows, setRows] = useState<Item[]>([])
@@ -27,7 +27,7 @@ export default function Tasks({ mode }: { mode: 'today' | 'board' }) {
   const [team, setTeam] = useState('All')
   const [status, setStatus] = useState('All')
   const [person, setPerson] = useState('')
-  const [mine, setMine] = useState(mode === 'today')
+  const [mine, setMine] = useState(false) // switched on automatically once a name is set and matches tasks
   const [from, setFrom] = useState(t)
   const [to, setTo] = useState(t)
   const [picked, setPicked] = useState<Set<number>>(new Set())
@@ -37,7 +37,7 @@ export default function Tasks({ mode }: { mode: 'today' | 'board' }) {
   const load = useCallback(async () => {
     setLoading(true)
     let q = supabase.from('task_instances')
-      .select('id,due_date,status,remarks,done_at,task_templates(team,title,freq_text,res1,res2,final_res)')
+      .select('id,due_date,status,remarks,done_at,done_by_name,task_templates(team,title,freq_text,res1,res2,final_res)')
       .order('due_date', { ascending: false }).limit(1000)
     q = mode === 'today' ? q.lte('due_date', t).neq('status', 'Done') : q.gte('due_date', from).lte('due_date', to)
     const { data, error } = await q
@@ -77,14 +77,14 @@ export default function Tasks({ mode }: { mode: 'today' | 'board' }) {
     await writeXlsxFile([head, ...body] as never, { sheet: 'Team To-Do' }).toFile(`Tasks-${from}-to-${to}.xlsx`)
   }
 
-  const name = profile?.name.toLowerCase() ?? ''
-  const isMine = (r: Item) => `${r.task_templates.res1 ?? ''} ${r.task_templates.res2 ?? ''}`.toLowerCase().includes(name)
+  const name = myName.toLowerCase()
+  const isMine = (r: Item) => name !== '' && `${r.task_templates.res1 ?? ''} ${r.task_templates.res2 ?? ''}`.toLowerCase().includes(name)
   const [mineChecked, setMineChecked] = useState(false)
   useEffect(() => {
-    // admins whose name appears in no task would otherwise see an empty list on first load
+    // on Today, show just my tasks by default — but only if a name is set and it matches at least one task
     if (loading || mineChecked || mode !== 'today') return
     setMineChecked(true)
-    if (profile?.role !== 'member' && !rows.some(isMine)) setMine(false)
+    if (name && rows.some(isMine)) setMine(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, rows])
   const teams = useMemo(() => ['All', ...new Set(rows.map(r => r.task_templates.team))], [rows])
@@ -94,11 +94,11 @@ export default function Tasks({ mode }: { mode: 'today' | 'board' }) {
     if (team !== 'All' && tt.team !== team) return false
     if (status !== 'All' && r.status !== status) return false
     if (person && !owners.includes(person.toLowerCase())) return false
-    if (mine && profile?.role !== 'member' && name && !isMine(r)) return false
+    if (mine && name && !isMine(r)) return false
     return true
   })
   const open = shown.filter(r => r.status !== 'Done')
-  const hiddenByMine = mine && profile?.role !== 'member' ? rows.filter(r => !isMine(r) && (status === 'All' || r.status === status)).length : 0
+  const hiddenByMine = mine && name ? rows.filter(r => !isMine(r) && (status === 'All' || r.status === status)).length : 0
   const overdue = open.filter(r => r.due_date < t).length
   const groups = useMemo(() => {
     const m = new Map<string, Item[]>()
@@ -111,9 +111,9 @@ export default function Tasks({ mode }: { mode: 'today' | 'board' }) {
       {mode === 'today' ? (
         <>
           <div className="mb-4">
-            <h1 className="text-xl font-semibold">{greeting()}{profile ? `, ${profile.name.split(' ')[0]}` : ''}</h1>
+            <h1 className="text-xl font-semibold">{greeting()}{myName ? `, ${myName.split(' ')[0]}` : ''}</h1>
             <p className="text-sm text-muted">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
-              {profile?.role === 'member' && <> · showing tasks where you're “{profile.name}”</>}</p>
+              {!myName && <> · tap 👤 at the top to set your name and filter “Only mine”</>}</p>
           </div>
           <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
             <StatTile label="Open today" value={open.filter(r => r.due_date === t).length} />
@@ -139,7 +139,7 @@ export default function Tasks({ mode }: { mode: 'today' | 'board' }) {
         )}
         <select value={team} onChange={e => setTeam(e.target.value)} className="field" aria-label="Team">{teams.map(x => <option key={x}>{x}</option>)}</select>
         <input value={person} onChange={e => setPerson(e.target.value)} placeholder="Person…" className="field w-32" aria-label="Person" />
-        {profile?.role !== 'member' && (
+        {myName && (
           <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={mine} onChange={e => setMine(e.target.checked)} /> Only mine</label>
         )}
         {mode === 'board' && <button className="btn ml-auto" onClick={exportXlsx} disabled={!shown.length}>Export</button>}
@@ -202,7 +202,7 @@ function TaskCard({ r, today: t, picked, onPick, onUpdate }: {
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
             <span>{tt.freq_text}</span><span>· due {r.due_date}</span>
             {late > 0 && <span className="badge tone-bad">Overdue {late}d</span>}
-            {r.done_at && <span className="text-good">done {new Date(r.done_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</span>}
+            {r.done_at && <span className="text-good">done {r.done_by_name ? `by ${r.done_by_name} ` : ''}{new Date(r.done_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</span>}
             {owners.length > 0 && <span>· {owners.join(' → ')}</span>}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">

@@ -57,10 +57,9 @@ module.exports = async browser => {
     outstanding_v: [{ id: 1, po_no: evil2, client: evil, balance: 5, days_overdue: 1, aging: '0-30', invoice_amt: 5, received: 0, remarks: evil, next_followup: today }],
     tenders: [{ id: 1, bid_no: evil, client: evil2, status: 'Quoted', next_followup: today }],
     task_instances: [task(1, { remarks: evil, task_templates: { team: evil, title: evil2, freq_text: evil, res1: evil, res2: null, final_res: null } })],
-    profiles: [{ id: 'u1', name: evil, role: 'admin', team: null, active: true, email: evil2 }],
   }
   for (const [label, opts, path] of [['desktop', {}, ''], ['phone', devices['iPhone 13'], '']]) {
-    a = await openApp(browser, { data: hostile, ...opts })
+    a = await openApp(browser, { data: hostile, name: evil, ...opts })
     await a.page.waitForTimeout(300)
     ok(await a.page.locator('main').innerText().then(t => t.includes('<img src=x')), `${label}: markup in task data is shown as text`)
     for (const h of ['#/outstanding', '#/tenders', '#/board', '#/admin', '#/summary']) { await a.page.goto(BASE + h); await a.page.waitForTimeout(250) }

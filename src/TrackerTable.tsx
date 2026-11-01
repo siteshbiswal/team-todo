@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from './supabase'
-import { useProfile } from './profile'
 import { useTracker } from './useTracker'
 import { filterRows, inr, sortRows, statusTone, sumBy, today, type Row } from './lib'
 import { Badge, EmptyState, Skeleton } from './ui'
@@ -14,7 +13,6 @@ const colWidth = (c: Column) =>
 const isStatusLike = (k: string) => k === 'status' || k.endsWith('_status') || k === 'under_warranty'
 
 export default function TrackerTable({ cfg, initial }: { cfg: TrackerConfig; initial: { q: string; status: string } }) {
-  const { profile } = useProfile()
   const { rows, loading, load, save, remove, add, importXlsx, refreshRow } = useTracker(cfg)
   const [search, setSearch] = useState(initial.q)
   const [status, setStatus] = useState(initial.status || 'All')
@@ -28,10 +26,8 @@ export default function TrackerTable({ cfg, initial }: { cfg: TrackerConfig; ini
   const fileRef = useRef<HTMLInputElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
-  const role = profile?.role ?? 'member'
-  const isAdmin = role === 'admin'
-  const canEdit = role !== 'member' || cfg.editTeams.includes(profile?.team ?? '')
-  const allCols = useMemo(() => cfg.columns.filter(c => !c.cost || role !== 'member'), [cfg, role])
+  const allCols = cfg.columns
+  const canEdit = true, isAdmin = true // everyone with the link can do everything; changes are recorded in the audit log
   const cols = allCols.filter(c => !hidden.includes(c.key))
   const poPickerCol = cfg.columns.find(c => c.poPicker)
   const todayStr = today()
@@ -170,7 +166,6 @@ export default function TrackerTable({ cfg, initial }: { cfg: TrackerConfig; ini
         </div>
       )}
 
-      {!canEdit && <p className="mb-3 rounded-lg bg-info-soft px-3 py-2 text-sm text-info">View only — your team ({profile?.team ?? 'no team set'}) doesn't maintain this tracker.</p>}
       {adding && <AddForm cfg={cfg} poNos={poNos} onSubmit={async v => { const id = await add(v); if (id) { setAdding(false); setOpenId(id) } }} onCancel={() => setAdding(false)} />}
 
       {loading ? <Skeleton rows={6} /> : visible.length === 0 ? (
